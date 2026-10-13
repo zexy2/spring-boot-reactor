@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="324" viewBox="0 0 1200 324" role="img" aria-labelledby="title desc">
+  <title id="title">Java Backend Öğrenme Atölyesi</title>
+  <desc id="desc">Koyu lacivert bir zemin üzerinde turuncu ve turkuaz vurgular, 102 ders ve üç aşamalı öğrenme akışı.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#08101d"/>
+      <stop offset="1" stop-color="#0c2130"/>
+    </linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#253b51" stroke-opacity=".32" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="324" rx="16" fill="url(#bg)"/>
+  <rect width="1200" height="324" rx="16" fill="url(#grid)"/>
+  <path d="M0 320 H1200" stroke="#54dacf" stroke-width="4"/>
+
+  <g transform="translate(52 44)">
+    <rect width="58" height="58" fill="#101e2d" stroke="#ffb65c" stroke-width="2"/>
+    <path d="M0 0 H16 M0 0 V15 M58 58 H42 M58 58 V43" stroke="#ffb65c" stroke-width="4"/>
+    <text x="29" y="36" text-anchor="middle" fill="#ffb65c" font-size="21" font-family="monospace" font-weight="bold">JB</text>
+    <text x="80" y="22" fill="#8daac0" font-family="monospace" font-size="13" font-weight="bold" letter-spacing="3">ENGINEERING LEARNING LAB</text>
+    <path d="M80 35 H380" stroke="#334b61"/>
+  </g>
+
+  <g transform="translate(53 143)" font-family="Arial, Helvetica, sans-serif" font-weight="900">
+    <text x="0" y="0" font-size="52" fill="#f0f5ff" letter-spacing="1">JAVA BACKEND</text>
+    <text x="0" y="59" font-size="48" fill="#ffb65c" letter-spacing=".5">ÖĞRENME ATÖLYESİ</text>
+  </g>
+  <text x="55" y="246" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#a1b4c8">Kavramı anla. Gerçek senaryoda uygula. Hatırla ve geliştir.</text>
+
+  <g transform="translate(807 44)" font-family="Arial, Helvetica, sans-serif">
+    <rect width="340" height="236" rx="8" fill="#0c1827" stroke="#375366"/>
+    <text x="23" y="34" font-size="13" font-family="monospace" font-weight="bold" letter-spacing="2" fill="#4ed8cd">İNTERAKTİF ÇALIŞMA YOLU</text>
+
+    <g transform="translate(24 58)">
+      <rect width="292" height="42" fill="#172537" stroke="#ffb65c"/>
+      <rect width="40" height="42" fill="#ffb65c"/>
+      <text x="20" y="27" font-size="16" text-anchor="middle" font-weight="bold" fill="#101a24">01</text>
+      <text x="56" y="27" font-size="16" font-weight="bold" fill="#ecf2ff">ÖĞREN</text>
+    </g>
+    <g transform="translate(24 112)">
+      <rect width="292" height="42" fill="#142338" stroke="#42617c"/>
+      <rect width="40" height="42" fill="#19354c"/>
+      <text x="20" y="27" font-size="16" text-anchor="middle" font-weight="bold" fill="#4ed8cd">02</text>
+      <text x="56" y="27" font-size="16" font-weight="bold" fill="#ecf2ff">UYGULA</text>
+    </g>
+    <g transform="translate(24 166)">
+      <rect width="292" height="42" fill="#142338" stroke="#42617c"/>
+      <rect width="40" height="42" fill="#19354c"/>
+      <text x="20" y="27" font-size="16" text-anchor="middle" font-weight="bold" fill="#4ed8cd">03</text>
+      <text x="56" y="27" font-size="16" font-weight="bold" fill="#ecf2ff">HATIRLA / TEST ET</text>
+    </g>
+  </g>
+
+  <g font-family="monospace" font-weight="bold" font-size="12" letter-spacing="1" fill="#7c97ae">
+    <text x="54" y="293">14 AŞAMA</text>
+    <circle cx="159" cy="289" r="3" fill="#4ed8cd"/>
+    <text x="175" y="293">102 DERS</text>
+    <circle cx="278" cy="289" r="3" fill="#4ed8cd"/>
+    <text x="293" y="293">JAVA · SPRING · SQL · DDD · DEVOPS</text>
+  </g>
+</svg>
