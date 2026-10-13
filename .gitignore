@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+output/
+.playwright-cli/
+.codex-context/
+graphify-out/
+.codex-audit.mjs
+.env
+.env.*
+!.env.example
+coverage/

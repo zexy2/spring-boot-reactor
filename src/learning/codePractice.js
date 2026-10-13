@@ -1,0 +1,420 @@
+import { springCodeChallenges } from './springCodeChallenges.js'
+
+export const codePracticeLibrary = {
+  'java-class': {
+    prompt: 'Bir Product tipi tanımla, nesne oluştur ve iki field’ını doldur.',
+    editableStarter: true,
+    starter: `class Product {
+  // TODO: name ve price field'larını tanımla
+}
+
+class Demo {
+  void run() {
+    // TODO: Product nesnesini phone değişkenine ata, name ve price değerlerini ver
+  }
+}`,
+    solution: `class Product {
+  String name;
+  double price;
+}
+
+class Demo {
+  void run() {
+    Product phone = new Product();
+    phone.name = "Telefon";
+    phone.price = 1299.0;
+  }
+}`,
+    requirements: [
+      ['Product class’ı', /\bclass\s+Product\s*\{/],
+      ['String name field’ı', /\bString\s+name\s*;/],
+      ['double price field’ı', /\bdouble\s+price\s*;/],
+      ['new ile phone nesnesi', /\bProduct\s+phone\s*=\s*new\s+Product\s*\(\s*\)\s*;/],
+      ['phone field atamaları', /\bphone\.name\s*=\s*"[^"]+"\s*;[\s\S]*?\bphone\.price\s*=\s*\d+(?:\.\d+)?\s*;/],
+    ],
+    hint: '`class Product` bir tiptir. `new Product()` nesne üretir. `phone.name` ise nesnenin alanına erişir.',
+    expectedBehavior: 'run() içinde yeni Product nesnesi oluşur; iki field bu nesneye atanır.',
+    reviewQuestion: 'İkinci kez new Product() çağırırsan aynı nesne mi kullanılır?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'methods-constructor': {
+    prompt: 'Constructor ile ürün adını al; label() method’undan etiket döndür.',
+    editableStarter: true,
+    starter: `class Product {
+  private final String name;
+
+  // TODO: Product(String name) constructor'ını yaz ve field'a ata
+
+  // TODO: String label() method'unu yaz; "Ürün: " + name döndür
+}`,
+    solution: `class Product {
+  private final String name;
+
+  Product(String name) {
+    this.name = name;
+  }
+
+  String label() {
+    return "Ürün: " + name;
+  }
+}`,
+    requirements: [
+      ['Parametre alan constructor', /\bProduct\s*\(\s*String\s+name\s*\)/],
+      ['Field ataması', /\bthis\.name\s*=\s*name\s*;/],
+      ['String dönen label()', /\bString\s+label\s*\(\s*\)\s*\{/],
+      ['Etiket return ifadesi', /\breturn\s+"Ürün: "\s*\+\s*(?:this\.)?name\s*;/],
+    ],
+    hint: 'Constructor’ın dönüş tipi olmaz; adı class ile aynıdır. `this.name`, field’ı ifade eder.',
+    expectedBehavior: 'new Product("Kalem").label() sonucu "Ürün: Kalem" olmalı.',
+    reviewQuestion: '`this.name = name` satırında iki `name` neden aynı şeyi ifade etmiyor?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  interface: {
+    prompt: 'PaymentService sözleşmesini yaz ve CardPaymentService ile uygula.',
+    editableStarter: true,
+    starter: `interface PaymentService {
+  // TODO: boolean pay(double amount) sözleşmesi
+}
+
+class CardPaymentService implements PaymentService {
+  // TODO: public pay implementation'ı; yalnız pozitif tutara true dön
+}`,
+    solution: `interface PaymentService {
+  boolean pay(double amount);
+}
+
+class CardPaymentService implements PaymentService {
+  @Override
+  public boolean pay(double amount) {
+    return amount > 0;
+  }
+}`,
+    requirements: [
+      ['Interface sözleşmesi', /\binterface\s+PaymentService\s*\{\s*boolean\s+pay\s*\(\s*double\s+amount\s*\)\s*;/],
+      ['Interface implementasyonu', /\bclass\s+CardPaymentService\s+implements\s+PaymentService\s*\{/],
+      ['public pay method’u', /\bpublic\s+boolean\s+pay\s*\(\s*double\s+amount\s*\)\s*\{/],
+      ['Pozitif tutar koşulu', /\breturn\s+amount\s*>\s*0\s*;/],
+    ],
+    hint: 'Interface gövdesi davranış imzasını taşır; implementation içindeki method `public` olmalıdır.',
+    expectedBehavior: 'pay(15) true, pay(0) false döner.',
+    reviewQuestion: 'Yarın BankTransferService yazılırsa çağıran kod niçin PaymentService tipini kullanmalı?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'java-collections': {
+    prompt: 'Sipariş için List, tekil roller için Set, kullanıcı bulmak için Map kur.',
+    editableStarter: true,
+    starter: `import java.util.*;
+
+class Directory {
+  void example() {
+    // TODO: List<String> order (ArrayList) kur ve "Kalem" ekle
+    // TODO: Set<String> roles (HashSet) kur ve "ADMIN" ekle
+    // TODO: Map<Long, String> users (HashMap) kur; 42L -> "Ada" ekle
+    // TODO: 42L key'ini get ile okuyup String name'e ata
+  }
+}`,
+    solution: `import java.util.*;
+
+class Directory {
+  void example() {
+    List<String> order = new ArrayList<>();
+    order.add("Kalem");
+    Set<String> roles = new HashSet<>();
+    roles.add("ADMIN");
+    Map<Long, String> users = new HashMap<>();
+    users.put(42L, "Ada");
+    String name = users.get(42L);
+  }
+}`,
+    requirements: [
+      ['List ve ArrayList', /\bList\s*<\s*String\s*>\s+order\s*=\s*new\s+ArrayList\s*<\s*>\s*\(\s*\)/],
+      ['List.add', /\border\.add\s*\(\s*"Kalem"\s*\)/],
+      ['Set ve HashSet', /\bSet\s*<\s*String\s*>\s+roles\s*=\s*new\s+HashSet\s*<\s*>\s*\(\s*\)/],
+      ['Set.add', /\broles\.add\s*\(\s*"ADMIN"\s*\)/],
+      ['Map ve HashMap', /\bMap\s*<\s*Long\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/],
+      ['Key ekleme ve okuma', /\busers\.put\s*\(\s*42L\s*,\s*"Ada"\s*\)\s*;[\s\S]*?\bString\s+name\s*=\s*users\.get\s*\(\s*42L\s*\)/],
+    ],
+    hint: '`List` tekrar kabul eder, `Set` aynı elemanı tek tutar, `Map` key üzerinden value bulur.',
+    expectedBehavior: 'order bir satır, roles tek rol, users ise 42L için "Ada" içerir.',
+    reviewQuestion: 'Bir kullanıcıya aynı rol iki kez eklenirse Set ile List arasında hangi fark oluşur?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'java-hashmap': {
+    prompt: 'Değere göre eşit key’lerle HashMap lookup yap.',
+    editableStarter: true,
+    starter: `import java.util.*;
+
+// TODO: id alanına sahip UserKey record'unu tanımla
+
+class UserIndex {
+  void lookup() {
+    // TODO: Map<UserKey, String> users oluştur
+    // TODO: new UserKey(42) ile "Ada" ekle
+    // TODO: başka new UserKey(42) ile get yap ve found'a ata
+  }
+}`,
+    solution: `import java.util.*;
+
+record UserKey(long id) {}
+
+class UserIndex {
+  void lookup() {
+    Map<UserKey, String> users = new HashMap<>();
+    users.put(new UserKey(42), "Ada");
+    String found = users.get(new UserKey(42));
+  }
+}`,
+    requirements: [
+      ['UserKey record', /\brecord\s+UserKey\s*\(\s*long\s+id\s*\)/],
+      ['UserKey tipli Map', /\bMap\s*<\s*UserKey\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/],
+      ['Yeni key ile put', /\busers\.put\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*,\s*"Ada"\s*\)/],
+      ['Farklı nesneyle get', /\bString\s+found\s*=\s*users\.get\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*\)/],
+    ],
+    hint: 'Record, bileşenlerinden `equals` ve `hashCode` üretir. İki ayrı UserKey(42) mantıksal olarak eşittir.',
+    expectedBehavior: 'Farklı nesne kimliğine rağmen found değişkeni "Ada" olur.',
+    reviewQuestion: 'HashMap key olarak değişebilir bir alan kullansaydın ne bozulabilirdi?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'java-exceptions': {
+    prompt: 'Stok yetersizse custom unchecked exception fırlat.',
+    editableStarter: true,
+    starter: `// TODO: OutOfStockException, RuntimeException'dan türesin
+
+class Inventory {
+  void reserve(int stock, int requested) {
+    // TODO: requested > stock ise custom exception fırlat
+  }
+}`,
+    solution: `class OutOfStockException extends RuntimeException {
+  OutOfStockException(String message) { super(message); }
+}
+
+class Inventory {
+  void reserve(int stock, int requested) {
+    if (requested > stock) {
+      throw new OutOfStockException("Stok yetersiz");
+    }
+  }
+}`,
+    requirements: [
+      ['Unchecked exception sınıfı', /\bclass\s+OutOfStockException\s+extends\s+RuntimeException\s*\{/],
+      ['Mesajı üst sınıfa iletme', /\bOutOfStockException\s*\(\s*String\s+message\s*\)\s*\{\s*super\s*\(\s*message\s*\)\s*;/],
+      ['Stok kontrolü ve throw', /\bif\s*\(\s*requested\s*>\s*stock\s*\)\s*\{\s*throw\s+new\s+OutOfStockException\s*\(\s*"[^"]+"\s*\)\s*;/],
+    ],
+    hint: '`throw` hatayı o anda fırlatır. `extends RuntimeException` checked `throws` bildirimi zorunluluğunu kaldırır.',
+    expectedBehavior: 'reserve(2, 3) exception fırlatır; reserve(4, 1) normal tamamlanır.',
+    reviewQuestion: 'Exception’ı catch edip hiçbir şey yapmadan yutmak neden tehlikeli?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'java-streams': {
+    prompt: 'Stream ile aktif ürünleri seç, adlarını çıkar ve sırala.',
+    editableStarter: true,
+    starter: `import java.util.*;
+
+record Product(String name, boolean active) {}
+
+class Catalog {
+  List<String> activeNames(List<Product> products) {
+    // TODO: products.stream() üzerinden filter, map, sorted, toList kullan
+  }
+}`,
+    solution: `import java.util.*;
+
+record Product(String name, boolean active) {}
+
+class Catalog {
+  List<String> activeNames(List<Product> products) {
+    return products.stream()
+      .filter(p -> p.active())
+      .map(p -> p.name())
+      .sorted()
+      .toList();
+  }
+}`,
+    requirements: [
+      ['Product listesi dönen değil, String listesi dönen method', /\bList\s*<\s*String\s*>\s+activeNames\s*\(\s*List\s*<\s*Product\s*>\s+products\s*\)/],
+      ['Stream kaynağı', /\breturn\s+products\.stream\s*\(\s*\)/],
+      ['Aktif ürün filtresi', /\.filter\s*\(\s*(?:p\s*->\s*p\.active\s*\(\s*\)|Product::active)\s*\)/],
+      ['Ürün adını çıkarma', /\.map\s*\(\s*(?:p\s*->\s*p\.name\s*\(\s*\)|Product::name)\s*\)/],
+      ['Sıralama ve terminal işlem', /\.sorted\s*\(\s*\)\s*\.toList\s*\(\s*\)/],
+    ],
+    hint: 'filter elemanı seçer; map onu dönüştürür; toList terminal işlemdir.',
+    expectedBehavior: 'Ürünler içinden active=true olanların isimlerini alfabetik List olarak döndürür.',
+    reviewQuestion: 'Sondaki toList() kaldırılırsa stream pipeline ne zaman çalışır?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'java-concurrency': {
+    prompt: 'Paylaşılan sayaç için hem yazmayı hem okumayı aynı lock ile koru.',
+    editableStarter: true,
+    starter: `class Counter {
+  private int value;
+
+  // TODO: synchronized void increment() içinde value++ yap
+
+  // TODO: synchronized int getValue() içinde value döndür
+}`,
+    solution: `class Counter {
+  private int value;
+
+  synchronized void increment() {
+    value++;
+  }
+
+  synchronized int getValue() {
+    return value;
+  }
+}`,
+    requirements: [
+      ['Yazmaya monitor kilidi', /\bsynchronized\s+void\s+increment\s*\(\s*\)\s*\{\s*value\s*\+\+\s*;/],
+      ['Okumaya aynı monitor kilidi', /\bsynchronized\s+int\s+getValue\s*\(\s*\)\s*\{\s*return\s+value\s*;/],
+    ],
+    hint: '`value++` tek atomik adım değildir. İki instance method da aynı Counter nesnesinin monitor kilidini kullanır.',
+    expectedBehavior: 'Aynı Counter nesnesine farklı thread’lerden erişirken kritik okuma/yazma serialize edilir.',
+    reviewQuestion: 'Her request yeni Counter nesnesi oluştursaydı bu kilitler birbirini korur muydu?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'java-abstract-composition': {
+    prompt: 'OrderService’e concrete sınıf yerine Notifier bağımlılığı ver.',
+    editableStarter: true,
+    starter: `interface Notifier { void send(String message); }
+
+class EmailNotifier implements Notifier {
+  public void send(String message) { System.out.println(message); }
+}
+
+class OrderService {
+  // TODO: private final Notifier field
+  // TODO: Notifier alan constructor
+  // TODO: notifyCustomer method'undan notifier.send çağır
+}`,
+    solution: `interface Notifier { void send(String message); }
+
+class EmailNotifier implements Notifier {
+  public void send(String message) { System.out.println(message); }
+}
+
+class OrderService {
+  private final Notifier notifier;
+
+  OrderService(Notifier notifier) {
+    this.notifier = notifier;
+  }
+
+  void notifyCustomer(String message) {
+    notifier.send(message);
+  }
+}`,
+    requirements: [
+      ['Interface tipinde final field', /\bprivate\s+final\s+Notifier\s+notifier\s*;/],
+      ['Constructor injection', /\bOrderService\s*\(\s*Notifier\s+notifier\s*\)\s*\{\s*this\.notifier\s*=\s*notifier\s*;/],
+      ['Abstraction üzerinden çağrı', /\bvoid\s+notifyCustomer\s*\(\s*String\s+message\s*\)\s*\{\s*notifier\.send\s*\(\s*message\s*\)\s*;/],
+    ],
+    hint: 'OrderService nesneyi kendi üretmez. Dışarıdan Notifier alır; e-posta yerine SMS vermek kolaylaşır.',
+    expectedBehavior: 'Constructor’a verilen herhangi bir Notifier implementation’ı notifyCustomer ile çağrılır.',
+    reviewQuestion: 'OrderService içinde new EmailNotifier() yazmak testleri ve değişimi neden zorlaştırır?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  'java-oop': {
+    prompt: 'Payment üst tipini CardPayment ile genişlet; davranışı override et.',
+    editableStarter: true,
+    starter: `import java.math.BigDecimal;
+
+abstract class Payment {
+  protected final BigDecimal amount;
+  // TODO: constructor ile amount field'ını doldur
+  // TODO: abstract boolean pay() sözleşmesi
+}
+
+class CardPayment extends Payment {
+  // TODO: constructor içinde super(amount) çağır
+  // TODO: @Override boolean pay() ile pozitif tutarı kontrol et
+}`,
+    solution: `import java.math.BigDecimal;
+
+abstract class Payment {
+  protected final BigDecimal amount;
+
+  Payment(BigDecimal amount) { this.amount = amount; }
+  abstract boolean pay();
+}
+
+class CardPayment extends Payment {
+  CardPayment(BigDecimal amount) { super(amount); }
+
+  @Override
+  boolean pay() { return amount.signum() > 0; }
+}`,
+    requirements: [
+      ['Abstract üst sınıf', /\babstract\s+class\s+Payment\s*\{/],
+      ['Üst sınıf constructor', /\bPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{\s*this\.amount\s*=\s*amount\s*;/],
+      ['Abstract davranış', /\babstract\s+boolean\s+pay\s*\(\s*\)\s*;/],
+      ['Alt sınıf ve super', /\bclass\s+CardPayment\s+extends\s+Payment\s*\{\s*CardPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{\s*super\s*\(\s*amount\s*\)\s*;/],
+      ['Override edilen iş kuralı', /@Override\s+boolean\s+pay\s*\(\s*\)\s*\{\s*return\s+amount\.signum\s*\(\s*\)\s*>\s*0\s*;/],
+    ],
+    hint: 'abstract class gövde ve state taşıyabilir. Alt sınıf constructor’ı super ile üst yapıyı kurar.',
+    expectedBehavior: 'Pozitif BigDecimal tutarda pay() true, sıfırda false döner.',
+    reviewQuestion: 'Payment referansı CardPayment nesnesini gösterirken pay() çağrısı nereden çalışır?',
+    syntaxTemplate: '__ANSWER__',
+  },
+  ...springCodeChallenges,
+}
+
+export function normalizeCodeAnswer(value) {
+  return String(value)
+    .replace(/\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\s+/g, '')
+    .toLocaleLowerCase('tr-TR')
+}
+
+export function buildCodePractice(lesson) {
+  if (!lesson?.id) return null
+
+  const custom = codePracticeLibrary[lesson.id]
+  if (custom) return { id: `${lesson.id}-custom`, ...custom }
+
+  const source = lesson.code ?? ''
+  const codeLike = /(@[A-Z]|\b(class|interface|record|public|private|return|SELECT|CREATE|BEGIN|function|const|def|git|FROM)\b)/i.test(source)
+  if (!codeLike || !lesson.codeNotes?.length) return null
+
+  const candidate = lesson.codeNotes.find(([fragment]) => {
+    const value = String(fragment)
+    return value.length >= 3 && value.length <= 100 && source.includes(value) && !/[↓→]/.test(value)
+  })
+  if (!candidate) return null
+
+  const [fragment, explanation] = candidate
+  return {
+    id: `${lesson.id}-generated`,
+    prompt: `Eksik parçayı kendin yaz: ${explanation}`,
+    starter: source.replace(fragment, '/* TODO: burayı sen yaz */'),
+    solution: source,
+    expected: fragment,
+    requirements: [[fragment, fragment]],
+  }
+}
+
+export function evaluateCodeRequirements(answer, challenge) {
+  if (!challenge) return { checks: [], generatedMatch: false, staticSuccess: false }
+
+  const normalized = normalizeCodeAnswer(answer)
+  const withoutComments = String(answer).replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  const checks = (challenge.requirements ?? []).map(([label, needle]) => ({
+    label,
+    ok: needle instanceof RegExp ? needle.test(withoutComments) : normalized.includes(normalizeCodeAnswer(needle)),
+  }))
+  if (challenge.editableStarter) {
+    checks.push({ label: 'TODO satırları tamamlandı', ok: !/\bTODO\b/i.test(String(answer)) })
+  }
+  const generatedMatch = challenge.expected
+    ? normalized.includes(normalizeCodeAnswer(challenge.expected))
+    : true
+  const staticSuccess = String(answer).trim().length > 0 && generatedMatch && checks.every((item) => item.ok)
+
+  return { checks, generatedMatch, staticSuccess }
+}
+
+export function getSyntaxTemplates(challenge) {
+  if (Array.isArray(challenge?.syntaxTemplates)) return challenge.syntaxTemplates.filter(Boolean)
+  return challenge?.syntaxTemplate ? [challenge.syntaxTemplate] : []
+}
