@@ -131,6 +131,7 @@ flowchart TD
 
 - **Yedekle:** Sol menüdeki **“İlerlemeyi yedekle / geri yükle”** bölümünden **“JSON indir”** seçeneğini kullan.
 - **Geri yükle:** İndirdiğin JSON dosyasını seç; mevcut verilerle **birleştirme** veya **yerine koyma** seçeneğini ihtiyacına göre belirle.
+- **Birden fazla sekme:** İlerleme aynı tarayıcıda farklı sekmelerde değişirse eski sekmede otomatik kayıt durur. O sekmede ek çalışma yaptıysan uyarıdan JSON yedeğini indir, sayfayı yenile ve **Birleştir** moduyla geri al. Çakışma koruması tarayıcı `localStorage` kısıtları nedeniyle çok yakın eşzamanlı yazımlarda mutlak garanti vermez.
 - **Cihaz/tarayıcı değiştirirken:** Önce yedek al. `localhost` ile GitHub Pages farklı tarayıcı kökenleri olduğundan ilerlemeleri kendiliğinden paylaşmaz.
 
 Tarayıcı verilerini temizlemek ilerlemeni silebilir. Yedeği güvenli bir yerde sakla; içe aktarmadan önce hangi geri yükleme modunu seçtiğini kontrol et.

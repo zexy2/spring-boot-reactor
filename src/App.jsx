@@ -16,7 +16,7 @@ import { buildCheckpointQuestions, buildRetryQuestion } from './learning/checkpo
 import { conceptAliases, escapeRegex, getConceptDetail, getLessonTerms, getPrerequisites, normalizeConcept } from './learning/concepts'
 import { buildAdaptiveMasteryPlan, insertSpacedRetry } from './learning/adaptiveMastery'
 import { restoreProgressBackup } from './learning/progressTransfer'
-import { loadProgressStorage, rawProgressRecovery, saveProgressStorage } from './learning/progressStorage'
+import { ProgressStorageConflictError, SNAPSHOT_KEY, loadProgressStorage, rawProgressRecovery, saveProgressStorage } from './learning/progressStorage'
 import { isLessonShortcut, lessonIdFromUrl, lessonUrl, shouldHandleLessonLinkClick } from './learning/lessonNavigation'
 import {
   getGuidedActiveRecall,
@@ -2976,6 +2976,10 @@ function App() {
   const [completed, setCompleted] = useState(initialState.completed)
   const [learning, setLearning] = useState(initialState.learning)
   const latestProgress = useRef(initialState)
+  const savedSnapshot = useRef(initialState.snapshotRaw ?? null)
+  const savedProgress = useRef(initialState.snapshotRaw !== null && !initialState.blocked
+    ? { completed: initialState.completed, learning: initialState.learning }
+    : null)
   const initialDeepLink = useRef(Boolean(lessonIdFromUrl(window.location.href, LESSON_IDS)))
   const defaultLessonId = useRef(null)
   if (!defaultLessonId.current) {
@@ -2986,6 +2990,7 @@ function App() {
   const [focus, setFocus] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
   const [storageWarning, setStorageWarning] = useState(false)
+  const [storageConflict, setStorageConflict] = useState(false)
   const [recoveryIssue, setRecoveryIssue] = useState(initialState.blocked ? initialState.reason : '')
   const [roadmapOpen, setRoadmapOpen] = useState(false)
   const [roadmapQuery, setRoadmapQuery] = useState('')
@@ -3042,15 +3047,35 @@ function App() {
   const activeHasCodeWorkout = useMemo(() => Boolean(buildCodePractice(activeLesson)), [activeLesson])
 
   useEffect(() => {
-    if (recoveryIssue) return
-    try {
-      saveProgressStorage(window.localStorage, completed, learning, lessons)
-      setStorageWarning(false)
-    } catch {
-      // QuotaExceededError and SecurityError must not crash the lesson UI.
-      setStorageWarning(true)
+    if (recoveryIssue || storageConflict) return
+    if (savedProgress.current?.completed === completed && savedProgress.current?.learning === learning) {
+      try {
+        if (window.localStorage.getItem(SNAPSHOT_KEY) !== savedSnapshot.current) setStorageConflict(true)
+      } catch {
+        setStorageWarning(true)
+      }
+      return
     }
-  }, [completed, learning, recoveryIssue])
+    try {
+      const snapshot = saveProgressStorage(window.localStorage, completed, learning, lessons, { expectedRaw: savedSnapshot.current })
+      savedSnapshot.current = JSON.stringify(snapshot)
+      savedProgress.current = { completed, learning }
+      setStorageWarning(false)
+    } catch (error) {
+      if (error instanceof ProgressStorageConflictError) setStorageConflict(true)
+      else setStorageWarning(true)
+    }
+  }, [completed, learning, recoveryIssue, storageConflict])
+
+  useEffect(() => {
+    const onStorageChange = (event) => {
+      if (event.storageArea !== window.localStorage) return
+      if (event.key !== SNAPSHOT_KEY && event.key !== null) return
+      if (event.newValue !== savedSnapshot.current) setStorageConflict(true)
+    }
+    window.addEventListener('storage', onStorageChange)
+    return () => window.removeEventListener('storage', onStorageChange)
+  }, [])
   useLayoutEffect(() => {
     latestProgress.current = { completed, learning }
   }, [completed, learning])
@@ -3088,6 +3113,7 @@ function App() {
   }
 
   const restoreBackup = (incoming, options) => {
+    if (storageConflict) throw new Error('Başka sekmede daha yeni kayıt var. Önce bu sekmenin JSON yedeğini indirip sayfayı yenile.')
     const restored = restoreProgressBackup(latestProgress.current, incoming, options)
     latestProgress.current = restored
     setLearning(restored.learning)
@@ -3278,6 +3304,15 @@ function App() {
           <button className="focus-toggle" onClick={() => setFocus((v) => !v)}>{focus ? 'Haritayı aç' : 'Odak modu'}</button>
         </div>
       </header>
+      {storageConflict && (
+        <div className="storage-warning" role="alert">
+          <strong>Başka bir sekme ilerlemeni değiştirdi.</strong>
+          Bu sekmede otomatik kayıt durduruldu. Burada yeni çalıştıysan aşağıdan JSON yedeğini indir. Sonra sayfayı yenile, güncel ilerlemeyi aç ve yedeği “Birleştir” modunda yükle.
+          <div className="storage-recovery-actions">
+            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} exportOnly />
+          </div>
+        </div>
+      )}
       {recoveryIssue && (
         <div className="storage-warning" role="alert">
           <strong>{recoveryIssue}</strong> Mevcut veri üzerine yazılmıyor. Ham kurtarma dosyasını indir; geçerli ilerleme JSON yedeğini aşağıdan yükleyerek kaydı yeniden başlatabilirsin.
@@ -3288,7 +3323,7 @@ function App() {
           <small>Ham kurtarma dosyası, normal ilerleme yedeği yerine doğrudan yüklenemez.</small>
         </div>
       )}
-      {storageWarning && <div className="storage-warning" role="alert">İlerleme bu cihazda kaydedilemiyor. Tarayıcı depolama ayarlarını kontrol et; sayfayı yenilersen son çalışmaların kaybolabilir. JSON yedeğini indir.</div>}
+      {storageWarning && !storageConflict && <div className="storage-warning" role="alert">İlerleme bu cihazda kaydedilemiyor. Tarayıcı depolama ayarlarını kontrol et; sayfayı yenilersen son çalışmaların kaybolabilir. JSON yedeğini indir.</div>}
       {readinessOpen && <div id="readiness-panel"><ReadinessPanel readiness={readiness} onClose={closeReadiness} /></div>}
 
       <div className="shell">

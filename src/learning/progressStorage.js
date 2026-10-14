@@ -10,6 +10,13 @@ export const LEGACY_LEARNING_KEY = 'spring-reactor-learning-v1'
 const empty = () => ({ completed: [], learning: {} })
 const blocked = (reason) => ({ ...empty(), blocked: true, reason })
 
+export class ProgressStorageConflictError extends Error {
+  constructor() {
+    super('Başka bir sekme ilerlemeyi değiştirdi. Eski kayıt üzerine yazılamaz.')
+    this.name = 'ProgressStorageConflictError'
+  }
+}
+
 function validatedState(input, lessonList) {
   const cleaned = createProgressBackup(input.completed, input.learning, lessonList)
   const learning = Object.fromEntries(Object.entries(cleaned.learning).map(([id, value]) => {
@@ -27,15 +34,15 @@ export function loadProgressStorage(storage, lessonList = lessons) {
     const snapshot = storage.getItem(SNAPSHOT_KEY)
     if (snapshot !== null) {
       try {
-        return { ...validatedState(parseProgressBackup(snapshot, lessonList), lessonList), blocked: false }
+        return { ...validatedState(parseProgressBackup(snapshot, lessonList), lessonList), blocked: false, snapshotRaw: snapshot }
       } catch {
-        return blocked('Kayıt dosyası bozulmuş veya desteklenmeyen biçimde. Otomatik kayıt durduruldu.')
+        return { ...blocked('Kayıt dosyası bozulmuş veya desteklenmeyen biçimde. Otomatik kayıt durduruldu.'), snapshotRaw: snapshot }
       }
     }
 
     const rawProgress = storage.getItem(LEGACY_PROGRESS_KEY)
     const rawLearning = storage.getItem(LEGACY_LEARNING_KEY)
-    if (rawProgress === null && rawLearning === null) return { ...empty(), blocked: false }
+    if (rawProgress === null && rawLearning === null) return { ...empty(), blocked: false, snapshotRaw: null }
 
     let completed
     let learning
@@ -46,7 +53,7 @@ export function loadProgressStorage(storage, lessonList = lessons) {
       return blocked('Eski ilerleme kayıtlarından biri okunamıyor. Otomatik kayıt durduruldu.')
     }
     try {
-      return { ...validatedState({ completed, learning }, lessonList), blocked: false }
+      return { ...validatedState({ completed, learning }, lessonList), blocked: false, snapshotRaw: null }
     } catch {
       return blocked('Eski ilerleme verisinin yapısı geçersiz. Otomatik kayıt durduruldu.')
     }
@@ -55,11 +62,16 @@ export function loadProgressStorage(storage, lessonList = lessons) {
   }
 }
 
-export function saveProgressStorage(storage, completed, learning, lessonList = lessons) {
+export function saveProgressStorage(storage, completed, learning, lessonList = lessons, options = {}) {
   // A single localStorage write prevents progress and learning from diverging.
   const snapshot = createProgressBackup(completed, learning, lessonList)
   const payload = JSON.stringify(snapshot)
   if (new TextEncoder().encode(payload).length > MAX_BACKUP_BYTES) throw new Error('İlerleme verisi 2 MB sınırını aşıyor.')
+  // Best-effort optimistic concurrency: another tab's saved snapshot must not
+  // be overwritten by an older tab. localStorage has no compare-and-swap API.
+  if (Object.hasOwn(options, 'expectedRaw') && storage.getItem(SNAPSHOT_KEY) !== options.expectedRaw) {
+    throw new ProgressStorageConflictError()
+  }
   storage.setItem(SNAPSHOT_KEY, payload)
   return snapshot
 }

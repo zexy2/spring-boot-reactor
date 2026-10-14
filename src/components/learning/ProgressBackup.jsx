@@ -5,7 +5,7 @@ import {
   parseProgressBackup,
 } from '../../learning/progressTransfer'
 
-export default function ProgressBackup({ completed, learning, onRestore, importOnly = false }) {
+export default function ProgressBackup({ completed, learning, onRestore, importOnly = false, exportOnly = false }) {
   const fileRef = useRef(null)
   const [mode, setMode] = useState('merge')
   const [status, setStatus] = useState('')
@@ -53,20 +53,22 @@ export default function ProgressBackup({ completed, learning, onRestore, importO
 
   return (
     <details className="progress-backup">
-      <summary>{importOnly ? 'Geçerli JSON yedeğini yükle' : 'İlerlemeyi yedekle / geri yükle'}</summary>
+      <summary>{exportOnly ? 'Bu sekmenin ilerlemesini indir' : importOnly ? 'Geçerli JSON yedeğini yükle' : 'İlerlemeyi yedekle / geri yükle'}</summary>
       <div className="progress-backup-actions">
         {!importOnly && <button type="button" onClick={download} disabled={busy}>JSON indir</button>}
-        <label>
-          <span>Yükleme modu</span>
-          <select value={mode} disabled={busy} onChange={(event) => setMode(event.target.value)}>
-            <option value="merge">Birleştir (önerilen)</option>
-            <option value="replace">Mevcut kayıtları değiştir</option>
-          </select>
-        </label>
-        <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'Okunuyor…' : 'JSON yükle'}</button>
-        <input ref={fileRef} type="file" accept=".json,application/json" onChange={upload} aria-label="İlerleme yedek dosyası" hidden />
+        {!exportOnly && <>
+          <label>
+            <span>Yükleme modu</span>
+            <select value={mode} disabled={busy} onChange={(event) => setMode(event.target.value)}>
+              <option value="merge">Birleştir (önerilen)</option>
+              <option value="replace">Mevcut kayıtları değiştir</option>
+            </select>
+          </label>
+          <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'Okunuyor…' : 'JSON yükle'}</button>
+          <input ref={fileRef} type="file" accept=".json,application/json" onChange={upload} aria-label="İlerleme yedek dosyası" hidden />
+        </>}
       </div>
-      <small>{importOnly ? 'Bozuk kayıt korunuyor. Geçerli yedek yüklenince kayıt yeniden başlar.' : 'İlerleme bu tarayıcıda saklanır. JSON dosyasını güvenli bir yerde tut.'}</small>
+      <small>{exportOnly ? 'Yedek dosyasını sakla, ardından sayfayı yenileyip güncel ilerlemeyle birleştir.' : importOnly ? 'Bozuk kayıt korunuyor. Geçerli yedek yüklenince kayıt yeniden başlar.' : 'İlerleme bu tarayıcıda saklanır. JSON dosyasını güvenli bir yerde tut.'}</small>
       {status && <p className="progress-backup-status" role="status" aria-live="polite">{status}</p>}
     </details>
   )
