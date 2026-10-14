@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { lessons } from '../src/data/curriculum.js'
+import { codePracticeLibrary } from '../src/learning/codePractice.js'
 
 const storageKey = 'spring-reactor-snapshot-v1'
 const lessonId = 'spring-vs-boot'
@@ -169,6 +170,21 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   await editor.focus()
   await editor.press('ControlOrMeta+Enter')
   await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+})
+
+test('code editor does not accept required Java code hidden inside string literals', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  const challenge = codePracticeLibrary['java-class']
+  const fakeAnswer = `${challenge.solution.replace('class Product {', 'class ProductDraft {')}\nclass Notes { String fake = "class Product {"; }`
+  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(fakeAnswer)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+
+  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.locator('.code-requirements')).toContainText('× Product class’ı')
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
 
 test('Java draft survives a reload immediately after typing', async ({ page }) => {

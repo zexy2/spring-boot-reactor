@@ -37,6 +37,19 @@ test('TODO text inside Java literals is valid, but real TODO comments remain unf
   }
 })
 
+test('code-shaped text inside Java literals cannot satisfy regex requirements', async () => {
+  const challenge = codePracticeLibrary['java-class']
+  const forged = `${challenge.solution.replace('class Product {', 'class ProductDraft {')}\nclass Notes { String fake = "class Product {"; }`
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(forged), 'forged answer is syntactically valid Java')
+  const result = evaluateCodeRequirements(forged, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label === 'Product class’ı')?.ok, false)
+
+  const legitimateLiteral = challenge.solution.replace('"Telefon"', '"class Product {"')
+  assert.equal(evaluateCodeRequirements(legitimateLiteral, challenge).staticSuccess, true)
+})
+
 test('buildCodePractice returns named custom challenge before generated fallback', () => {
   const challenge = buildCodePractice({
     id: 'annotations',

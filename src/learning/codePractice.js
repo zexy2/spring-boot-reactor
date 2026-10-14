@@ -466,6 +466,22 @@ export function buildCodePractice(lesson) {
   }
 }
 
+function matchesExecutablePattern(pattern, code, unquotedCode) {
+  // Some checks legitimately include string literals; only the *start* of a
+  // matched code construct must be outside a literal, not its whole span.
+  const matcher = new RegExp(pattern.source, `${pattern.flags.replace(/[gy]/g, '')}g`)
+  let match
+  while ((match = matcher.exec(code)) !== null) {
+    const firstToken = match[0].search(/\S/)
+    if (firstToken >= 0) {
+      const offset = match.index + firstToken
+      if (unquotedCode[offset] === code[offset]) return true
+    }
+    if (match[0].length === 0) matcher.lastIndex += 1
+  }
+  return false
+}
+
 export function evaluateCodeRequirements(answer, challenge) {
   if (!challenge) return { checks: [], generatedMatch: false, staticSuccess: false }
 
@@ -473,7 +489,9 @@ export function evaluateCodeRequirements(answer, challenge) {
   const { code: withoutComments, comments, unquotedCode } = splitCodeComments(answer)
   const checks = (challenge.requirements ?? []).map(([label, needle]) => ({
     label,
-    ok: needle instanceof RegExp ? needle.test(withoutComments) : normalized.includes(normalizeCodeAnswer(needle)),
+    ok: needle instanceof RegExp
+      ? matchesExecutablePattern(needle, withoutComments, unquotedCode)
+      : normalized.includes(normalizeCodeAnswer(needle)),
   }))
   if (challenge.editableStarter) {
     checks.push({ label: 'TODO satırları tamamlandı', ok: !/\bTODO\b/i.test(unquotedCode + comments) })
