@@ -16,17 +16,21 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const initialAnswer = () => typeof savedDraft === 'string' ? savedDraft : challenge?.editableStarter ? challenge.starter : ''
   const [answer, setAnswer] = useState(initialAnswer)
   const [checked, setChecked] = useState(false)
+  const [checkedRequirements, setCheckedRequirements] = useState(null)
   const [revealed, setRevealed] = useState(false)
   const [syntaxResult, setSyntaxResult] = useState(null)
   const verificationId = useRef(0)
   const gutterRef = useRef(null)
   const actionsRef = useRef(null)
   const editorHelpId = useId()
+  const uncheckedRequirements = useMemo(() => challenge ? evaluateCodeRequirements('', challenge) : null, [challenge])
+  const syntaxTemplates = useMemo(() => challenge ? getSyntaxTemplates(challenge) : [], [challenge])
 
   useEffect(() => {
     verificationId.current += 1
     setAnswer(initialAnswer())
     setChecked(false)
+    setCheckedRequirements(null)
     setRevealed(false)
     setSyntaxResult(null)
     return () => { verificationId.current += 1 }
@@ -41,18 +45,22 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     verificationId.current += 1
     setAnswer(restoredAnswer)
     setChecked(false)
+    setCheckedRequirements(null)
     setRevealed(false)
     setSyntaxResult(null)
   }, [savedDraft])
 
   if (!challenge) return null
 
-  const { checks, staticSuccess, feedback } = evaluateCodeRequirements(answer, challenge)
+  // Before submission, requirement badges only display their labels. Avoid
+  // repeatedly parsing the full editor buffer on every keystroke.
+  const { checks, staticSuccess, feedback } = checked && checkedRequirements
+    ? checkedRequirements
+    : uncheckedRequirements
   const missingChecks = checks.filter((item) => !item.ok).map((item) => item.label)
   const missingSummary = missingChecks.length > 0
     ? `Eksik şartlar: ${missingChecks.slice(0, 3).join(', ')}${missingChecks.length > 3 ? ` ve ${missingChecks.length - 3} diğer şart` : ''}.`
     : 'Görev şartlarını tekrar kontrol et.'
-  const syntaxTemplates = getSyntaxTemplates(challenge)
   const syntaxRequired = syntaxTemplates.length > 0
   const isFragmentExercise = challenge.answerMode === 'fragment'
   const syntaxOk = !syntaxRequired || syntaxResult?.ok === true
@@ -63,6 +71,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     verificationId.current += 1
     setAnswer(nextAnswer)
     setChecked(false)
+    setCheckedRequirements(null)
     setSyntaxResult(null)
     if (nextAnswer.length <= MAX_CODE_DRAFT_LENGTH) onDraftChange?.(lesson.id, nextAnswer)
   }
@@ -70,9 +79,11 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const verify = async () => {
     if (!answer.trim() || syntaxResult?.checking) return
     const thisCheck = ++verificationId.current
+    const currentRequirements = evaluateCodeRequirements(answer, challenge)
+    setCheckedRequirements(currentRequirements)
     setChecked(true)
     if (!syntaxRequired) {
-      if (staticSuccess && !passed) onComplete(lesson.id)
+      if (currentRequirements.staticSuccess && !passed) onComplete(lesson.id)
       return
     }
 
@@ -81,7 +92,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       const result = await validateJavaSyntax(answer, syntaxTemplates)
       if (verificationId.current !== thisCheck) return
       setSyntaxResult({ checking: false, ok: result.ok, message: result.message })
-      if (result.ok && staticSuccess && !passed) onComplete(lesson.id)
+      if (result.ok && currentRequirements.staticSuccess && !passed) onComplete(lesson.id)
     } catch (error) {
       if (verificationId.current !== thisCheck) return
       setSyntaxResult({ checking: false, ok: false, unavailable: true, message: error?.message })

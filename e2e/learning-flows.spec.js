@@ -144,6 +144,33 @@ test('unfinished Java code draft autosaves and returns after reload', async ({ p
   await expect(editor).toHaveAttribute('maxlength', '20000')
 })
 
+test('Java requirements update only on submission and reset after editing', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+  const workout = page.locator('.code-workout')
+  const editor = workout.getByRole('textbox', { name: /kod editörü/ })
+  const requirements = workout.locator('.code-requirements')
+  await editor.fill('class Product {}')
+  await expect(requirements.locator('.missing')).toHaveCount(0)
+
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(requirements.locator('.missing').first()).toBeVisible()
+  await expect(workout.locator('.code-workout-feedback')).toBeVisible()
+
+  await editor.fill(`class Product { String name; double price; }
+class Demo { void run() {
+  Product phone = new Product();
+  phone.name = "Telefon";
+  phone.price = 1299.0;
+} }`)
+  await expect(requirements.locator('.missing')).toHaveCount(0)
+  await expect(workout.locator('.code-workout-feedback')).toHaveCount(0)
+
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout).toContainText('✓ TAMAMLANDI')
+  await expect(requirements.locator('.missing')).toHaveCount(0)
+})
+
 test('code editor keyboard shortcuts expose an accessible exit and feedback', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
