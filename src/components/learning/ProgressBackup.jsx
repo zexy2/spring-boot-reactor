@@ -5,7 +5,7 @@ import {
   parseProgressBackup,
 } from '../../learning/progressTransfer'
 
-export default function ProgressBackup({ completed, learning, onRestore, importOnly = false, exportOnly = false }) {
+export default function ProgressBackup({ completed, learning, getCurrentProgress, onRestore, importOnly = false, exportOnly = false }) {
   const fileRef = useRef(null)
   const [mode, setMode] = useState('merge')
   const [status, setStatus] = useState('')
@@ -13,7 +13,10 @@ export default function ProgressBackup({ completed, learning, onRestore, importO
 
   const download = () => {
     try {
-      const data = JSON.stringify(createProgressBackup(completed, learning), null, 2)
+      // A focused editor may have a synchronously persisted draft that has not
+      // yet been reflected in its parent React state.
+      const current = getCurrentProgress?.() ?? { completed, learning }
+      const data = JSON.stringify(createProgressBackup(current.completed, current.learning), null, 2)
       const blob = new Blob([data], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')

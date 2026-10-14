@@ -2965,6 +2965,19 @@ function Lesson({ lesson, completed, onComplete, onNext, nextLesson, index, tota
 
 const LESSON_IDS = lessons.map((lesson) => lesson.id)
 
+// Editor drafts have their own fast path. Merge them into other progress writes
+// until a quiet moment allows the expensive roadmap/readiness React update.
+function mergePendingCodeDrafts(learning, pendingDrafts) {
+  let updated = learning
+  for (const [id, draftRecord] of pendingDrafts) {
+    const current = updated[id] ?? {}
+    if (current.codeDraft === draftRecord.codeDraft && current.codeDraftUpdatedAt === draftRecord.codeDraftUpdatedAt) continue
+    if (updated === learning) updated = { ...learning }
+    updated[id] = { ...current, ...draftRecord }
+  }
+  return updated
+}
+
 function App() {
   const [initialState] = useState(() => {
     try {
@@ -2976,6 +2989,8 @@ function App() {
   const [completed, setCompleted] = useState(initialState.completed)
   const [learning, setLearning] = useState(initialState.learning)
   const latestProgress = useRef(initialState)
+  const pendingCodeDrafts = useRef(new Map())
+  const pendingDraftTimer = useRef(null)
   const savedSnapshot = useRef(initialState.snapshotRaw ?? null)
   const savedProgress = useRef(initialState.snapshotRaw !== null && !initialState.blocked
     ? { completed: initialState.completed, learning: initialState.learning }
@@ -3046,6 +3061,8 @@ function App() {
   const activeStatus = learningStatus(learning, activeId, completedSet.has(activeId))
   const activeHasCodeWorkout = useMemo(() => Boolean(buildCodePractice(activeLesson)), [activeLesson])
 
+  useEffect(() => () => window.clearTimeout(pendingDraftTimer.current), [])
+
   useEffect(() => {
     if (recoveryIssue || storageConflict) return
     if (savedProgress.current?.completed === completed && savedProgress.current?.learning === learning) {
@@ -3057,9 +3074,10 @@ function App() {
       return
     }
     try {
-      const snapshot = saveProgressStorage(window.localStorage, completed, learning, lessons, { expectedRaw: savedSnapshot.current })
+      const currentLearning = mergePendingCodeDrafts(learning, pendingCodeDrafts.current)
+      const snapshot = saveProgressStorage(window.localStorage, completed, currentLearning, lessons, { expectedRaw: savedSnapshot.current })
       savedSnapshot.current = JSON.stringify(snapshot)
-      savedProgress.current = { completed, learning }
+      savedProgress.current = { completed, learning: currentLearning }
       setStorageWarning(false)
     } catch (error) {
       if (error instanceof ProgressStorageConflictError) setStorageConflict(true)
@@ -3077,7 +3095,7 @@ function App() {
     return () => window.removeEventListener('storage', onStorageChange)
   }, [])
   useLayoutEffect(() => {
-    latestProgress.current = { completed, learning }
+    latestProgress.current = { completed, learning: mergePendingCodeDrafts(learning, pendingCodeDrafts.current) }
   }, [completed, learning])
 
   const navigateToLesson = useCallback((lessonId) => {
@@ -3115,6 +3133,8 @@ function App() {
   const restoreBackup = (incoming, options) => {
     if (storageConflict) throw new Error('Başka sekmede daha yeni kayıt var. Önce bu sekmenin JSON yedeğini indirip sayfayı yenile.')
     const restored = restoreProgressBackup(latestProgress.current, incoming, options)
+    window.clearTimeout(pendingDraftTimer.current)
+    pendingCodeDrafts.current.clear()
     latestProgress.current = restored
     setLearning(restored.learning)
     setCompleted(restored.completed)
@@ -3186,12 +3206,19 @@ function App() {
     const { completed: currentCompleted, learning: currentLearning } = latestProgress.current
     const previous = currentLearning[lessonId] ?? {}
     if (previous.codeDraft === draft) return
+    const draftRecord = { codeDraft: draft, codeDraftUpdatedAt: Date.now() }
     const updatedLearning = {
       ...currentLearning,
-      [lessonId]: { ...previous, codeDraft: draft, codeDraftUpdatedAt: Date.now() },
+      [lessonId]: { ...previous, ...draftRecord },
     }
     latestProgress.current = { completed: currentCompleted, learning: updatedLearning }
-    setLearning(updatedLearning)
+    pendingCodeDrafts.current.set(lessonId, draftRecord)
+    window.clearTimeout(pendingDraftTimer.current)
+    pendingDraftTimer.current = window.setTimeout(() => {
+      const drafts = new Map(pendingCodeDrafts.current)
+      pendingCodeDrafts.current.clear()
+      setLearning((state) => mergePendingCodeDrafts(state, drafts))
+    }, 350)
     if (recoveryIssue || storageConflict) return
     try {
       // Persist each edit synchronously so immediate reload cannot drop the last keystroke.
@@ -3333,7 +3360,7 @@ function App() {
           <strong>Başka bir sekme ilerlemeni değiştirdi.</strong>
           Bu sekmede otomatik kayıt durduruldu. Burada yeni çalıştıysan aşağıdan JSON yedeğini indir. Sonra sayfayı yenile, güncel ilerlemeyi aç ve yedeği “Birleştir” modunda yükle.
           <div className="storage-recovery-actions">
-            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} exportOnly />
+            <ProgressBackup completed={completed} learning={learning} getCurrentProgress={() => latestProgress.current} onRestore={restoreBackup} exportOnly />
           </div>
         </div>
       )}
@@ -3342,7 +3369,7 @@ function App() {
           <strong>{recoveryIssue}</strong> Mevcut veri üzerine yazılmıyor. Ham kurtarma dosyasını indir; geçerli ilerleme JSON yedeğini aşağıdan yükleyerek kaydı yeniden başlatabilirsin.
           <div className="storage-recovery-actions">
             <button type="button" onClick={downloadRawRecovery}>Ham verileri indir</button>
-            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} importOnly />
+            <ProgressBackup completed={completed} learning={learning} getCurrentProgress={() => latestProgress.current} onRestore={restoreBackup} importOnly />
           </div>
           <small>Ham kurtarma dosyası, normal ilerleme yedeği yerine doğrudan yüklenemez.</small>
         </div>
@@ -3372,7 +3399,7 @@ function App() {
               </div>
               <small className="roadmap-result-count" role="status" aria-live="polite" aria-atomic="true">{visibleLessons.length}/{lessons.length} ders gösteriliyor</small>
             </div>
-            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} />
+            <ProgressBackup completed={completed} learning={learning} getCurrentProgress={() => latestProgress.current} onRestore={restoreBackup} />
           </div>
           {visibleLessons.length === 0 && <p className="roadmap-empty" role="status">Bu arama veya filtreyle eşleşen ders yok.</p>}
           {phases.map((phase) => {
@@ -3427,7 +3454,7 @@ function App() {
             <button className="lesson-share" type="button" onClick={copyLessonLink} title={`${activeLesson.title} dersinin bağlantısını kopyala`}>Bağlantıyı kopyala ↗</button>
           </div>
           {copyStatus && <p className="lesson-share-status" role="status" aria-live="polite">{copyStatus} {copyStatus.startsWith('Kopyalama') && <a href={lessonUrl(window.location.href, activeId)} target="_blank" rel="noopener noreferrer">Ders bağlantısını aç ↗</a>}</p>}
-          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={flushCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
+          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={pendingCodeDrafts.current.has(activeId) ? { ...activeRecord, ...pendingCodeDrafts.current.get(activeId) } : activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={flushCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
           {reviewDueCount === 0 && <RecallDeck completed={completedSet} activeId={activeId} learning={learning} onReview={recordReview} />}
           <footer>
             <strong>{activeLesson.points?.[0] ?? activeLesson.hook}</strong>
@@ -3442,5 +3469,7 @@ function App() {
     </main>
   )
 }
+
+App.displayName = 'App'
 
 export default App
