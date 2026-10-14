@@ -7,7 +7,7 @@ import { history, historyKeymap, indentMore, selectAll } from '@codemirror/comma
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 
 // CodeMirror only renders visible lines, even with thousands of blank lines.
-export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, onLimitReached, label, helpId, fragment }) {
+export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, onLimitReached, readDocumentRef, label, helpId, fragment }) {
   const mountRef = useRef(null)
   const viewRef = useRef(null)
   const callbacks = useRef({ onChange, onVerify, onEscape, onLimitReached })
@@ -105,6 +105,7 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
     view.contentDOM.addEventListener('blur', onCompositionEnd, true)
     view.contentDOM.addEventListener('beforeinput', onMultiCharacterInsert, true)
     viewRef.current = { view, makeState }
+    readDocumentRef.current = () => view.state.doc.toString()
     // Read-only E2E diagnostic: includes offscreen document content.
     view.dom.__getCodeDraft = () => view.state.doc.toString()
     view.dom.__selectCodeRange = (from, to) => view.dispatch({ selection: { anchor: from, head: to } })
@@ -116,6 +117,7 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
       view.contentDOM.removeEventListener('blur', onCompositionEnd, true)
       view.contentDOM.removeEventListener('beforeinput', onMultiCharacterInsert, true)
       viewRef.current = null
+      readDocumentRef.current = null
       view.destroy()
     }
   }, [])

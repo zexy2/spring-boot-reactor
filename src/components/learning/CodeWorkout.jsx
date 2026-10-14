@@ -20,6 +20,9 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   // CodeMirror sends document changes synchronously. A verification click can
   // arrive before React commits that change, so keep the latest text in a ref.
   const answerRef = useRef(answer)
+  // Read active CodeMirror document at verification time: React may not
+  // have committed the most recent editor change yet.
+  const readEditorDocumentRef = useRef(null)
   const latestLocalDraftTimestamp = useRef(0)
   const [checked, setChecked] = useState(false)
   const [checkedRequirements, setCheckedRequirements] = useState(null)
@@ -105,25 +108,28 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   }
 
   const verify = async () => {
-    const currentAnswer = answerRef.current
+    const currentAnswer = readEditorDocumentRef.current?.() ?? answerRef.current
     if (!currentAnswer.trim() || syntaxResult?.checking) return
+    if (currentAnswer !== answerRef.current) updateAnswer(currentAnswer)
     const thisCheck = ++verificationId.current
+    const answerChanged = () => verificationId.current !== thisCheck ||
+      (readEditorDocumentRef.current?.() ?? answerRef.current) !== currentAnswer
     const currentRequirements = evaluateCodeRequirements(currentAnswer, challenge)
     setCheckedRequirements(currentRequirements)
     setChecked(true)
     if (!syntaxRequired) {
-      if (currentRequirements.staticSuccess && !passed) onComplete(lesson.id)
+      if (!answerChanged() && currentRequirements.staticSuccess && !passed) onComplete(lesson.id)
       return
     }
 
     setSyntaxResult({ checking: true, ok: false })
     try {
       const result = await validateJavaSyntax(currentAnswer, syntaxTemplates)
-      if (verificationId.current !== thisCheck) return
+      if (answerChanged()) return
       setSyntaxResult({ checking: false, ok: result.ok, message: result.message })
       if (result.ok && currentRequirements.staticSuccess && !passed) onComplete(lesson.id)
     } catch (error) {
-      if (verificationId.current !== thisCheck) return
+      if (answerChanged()) return
       setSyntaxResult({ checking: false, ok: false, unavailable: true, message: error?.message })
     }
   }
@@ -173,7 +179,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
         </div>
         <div><small>{isFragmentExercise ? 'EKSİK İFADE' : 'SENİN KODUN'}</small>
           <Suspense fallback={<div className="code-editor-shell code-editor-loading" role="status">Java editörü yükleniyor…</div>}>
-            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={leaveEditor} onLimitReached={() => setLimitReached(true)} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
+            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={leaveEditor} onLimitReached={() => setLimitReached(true)} readDocumentRef={readEditorDocumentRef} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
           </Suspense>
           <div className="code-editor-count" aria-label="Kod uzunluğu">{answer.length.toLocaleString('tr-TR')} / {MAX_CODE_DRAFT_LENGTH.toLocaleString('tr-TR')} karakter</div>
           {limitReached && <p className="code-editor-limit-alert" role="status">20.000 karakter sınırı nedeniyle ekleme engellendi. Yer açmak için kodu kısalt.</p>}
