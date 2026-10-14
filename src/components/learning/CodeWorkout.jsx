@@ -45,6 +45,10 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   if (!challenge) return null
 
   const { checks, staticSuccess, feedback } = evaluateCodeRequirements(answer, challenge)
+  const missingChecks = checks.filter((item) => !item.ok).map((item) => item.label)
+  const missingSummary = missingChecks.length > 0
+    ? `Eksik şartlar: ${missingChecks.slice(0, 3).join(', ')}${missingChecks.length > 3 ? ` ve ${missingChecks.length - 3} diğer şart` : ''}.`
+    : 'Görev şartlarını tekrar kontrol et.'
   const syntaxTemplates = getSyntaxTemplates(challenge)
   const syntaxRequired = syntaxTemplates.length > 0
   const isFragmentExercise = challenge.answerMode === 'fragment'
@@ -64,12 +68,8 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     if (!answer.trim() || syntaxResult?.checking) return
     const thisCheck = ++verificationId.current
     setChecked(true)
-    if (!staticSuccess) {
-      setSyntaxResult(null)
-      return
-    }
     if (!syntaxRequired) {
-      if (!passed) onComplete(lesson.id)
+      if (staticSuccess && !passed) onComplete(lesson.id)
       return
     }
 
@@ -90,7 +90,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       if (!parsed) throw lastError
       if (verificationId.current !== thisCheck) return
       setSyntaxResult({ checking: false, ok: true })
-      if (!passed) onComplete(lesson.id)
+      if (staticSuccess && !passed) onComplete(lesson.id)
     } catch (error) {
       if (verificationId.current !== thisCheck) return
       const rawMessage = String(error?.message || '').split('\n')[0].slice(0, 220)
@@ -144,16 +144,20 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     : isFragmentExercise
       ? (checked && feedback) || 'Soldaki kod iskeletindeki TODO konumuna gelecek tek parçayı yaz. Ek açıklama veya tüm kodu yapıştırma.'
       : 'Requirement satırlarına bakıp kodu düzelt; doğrudan cevabı kopyalamadan bir kez daha dene.'
-  if (checked && staticSuccess && syntaxRequired) {
+  if (checked && syntaxRequired) {
     if (syntaxResult?.checking) {
       feedbackTitle = 'Java sözdizimi kontrol ediliyor…'
-      feedbackText = 'Kod tarayıcıda Java grammar parser ile ayrıştırılıyor.'
+      feedbackText = staticSuccess
+        ? 'Kod tarayıcıda Java grammar parser ile ayrıştırılıyor.'
+        : `${missingSummary} Java sözdizimi ayrıca kontrol ediliyor.`
     } else if (syntaxResult?.ok) {
-      feedbackTitle = 'Java sözdizimi geçerli.'
-      feedbackText = 'Kavram gereksinimleri ve Java grammar kontrolü birlikte geçti. Bu bir type-check/compile değildir.'
-    } else {
-      feedbackTitle = 'Java sözdizimi hatası var.'
-      feedbackText = syntaxResult?.message || 'Parantez, annotation, generic veya declaration yapısını tekrar kontrol et.'
+      feedbackTitle = staticSuccess ? 'Java sözdizimi geçerli.' : 'Java sözdizimi geçerli, görev eksik.'
+      feedbackText = staticSuccess
+        ? 'Kavram gereksinimleri ve Java grammar kontrolü birlikte geçti. Bu bir type-check/compile değildir.'
+        : `${missingSummary} Sözdizimi geçerli olması derleme veya davranış doğrulaması değildir.`
+    } else if (syntaxResult && !syntaxResult.checking) {
+      feedbackTitle = staticSuccess ? 'Java sözdizimi hatası var.' : 'Java sözdizimi hatası ve eksik şartlar var.'
+      feedbackText = `${syntaxResult.message || 'Parantez, annotation, generic veya declaration yapısını tekrar kontrol et.'}${staticSuccess ? '' : ` ${missingSummary}`}`
     }
   }
 

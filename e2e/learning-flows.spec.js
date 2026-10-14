@@ -169,7 +169,7 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   await expect(editor).not.toBeFocused()
   await editor.focus()
   await editor.press('ControlOrMeta+Enter')
-  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
 })
 
 test('indentation keeps selected code and skips a line outside the selection', async ({ page }) => {
@@ -190,6 +190,43 @@ test('indentation keeps selected code and skips a line outside the selection', a
   expect(selection).toEqual([0, '  class Test {\n    int a;\n'.length])
 })
 
+test('Java syntax and missing requirements are checked separately before recording progress', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  const editor = workout.getByRole('textbox', { name: /kod editörü/ })
+  const feedback = workout.getByRole('status')
+  const requirements = workout.locator('.code-requirements')
+
+  await editor.fill('class Product { String name;')
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(feedback).toContainText('Java sözdizimi hatası ve eksik şartlar var.')
+  await expect(requirements).toContainText('× Java sözdizimi')
+  await expect(requirements).toContainText('× double price field’ı')
+  expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
+
+  await editor.fill('class Product { String name; }')
+  await expect(feedback).toHaveCount(0)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(feedback).toContainText('Java sözdizimi geçerli, görev eksik.')
+  await expect(feedback).toContainText('Eksik şartlar:')
+  await expect(requirements).toContainText('✓ Java sözdizimi')
+  expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
+
+  await editor.fill(`${codePracticeLibrary['java-class'].solution}\n@@@`)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(feedback).toContainText('Java sözdizimi hatası var.')
+  await expect(requirements).toContainText('× Java sözdizimi')
+  expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
+
+  await editor.fill(codePracticeLibrary['java-class'].solution)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(feedback).toContainText('Java sözdizimi geçerli.')
+  await expect(workout).toContainText('✓ TAMAMLANDI')
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codePassed).toBe(true)
+})
+
 test('code editor does not accept required Java code hidden inside string literals', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
@@ -200,7 +237,7 @@ test('code editor does not accept required Java code hidden inside string litera
   await workout.getByRole('textbox', { name: /kod editörü/ }).fill(fakeAnswer)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
-  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
   await expect(workout.locator('.code-requirements')).toContainText('× Product class’ı')
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
@@ -217,7 +254,7 @@ test('code editor rejects a field assignment faked inside a Java string', async 
   await workout.getByRole('textbox', { name: /kod editörü/ }).fill(forged)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
-  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
   await expect(workout.locator('.code-requirements')).toContainText('× phone field atamaları')
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
@@ -234,7 +271,7 @@ test('code editor requires Product fields in Product rather than a nested class'
   await workout.getByRole('textbox', { name: /kod editörü/ }).fill(fakeAnswer)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
-  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
   await expect(workout.locator('.code-requirements')).toContainText('× name ve price, Product sınıfında')
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
@@ -250,7 +287,7 @@ test('collections challenge rejects valid code copied into a different class', a
   await workout.getByRole('textbox', { name: /kod editörü/ }).fill(wrongClass)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
-  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
   await expect(workout.locator('.code-requirements')).toContainText('× Koleksiyon işlemleri Directory.example() içinde')
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
