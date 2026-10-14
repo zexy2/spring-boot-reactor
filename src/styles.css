@@ -1143,6 +1143,28 @@ body::before {
 .code-workout-grid pre { margin: 0; min-height: 230px; border: 0; background: transparent; }
 .code-workout-grid textarea { width: 100%; min-height: 230px; resize: vertical; border: 0; outline: 0; background: transparent; color: #d9e7f4; padding: 18px; font: 400 12px/1.65 'IBM Plex Mono', monospace; tab-size: 2; }
 .code-workout-grid textarea { white-space: pre; overflow-x: auto; overflow-wrap: normal; }
+/* Keep long drafts inside the editor. The gutter's intrinsic height must not
+   stretch the grid and textarea to thousands of screen pixels. */
+.code-workout-grid .code-editor-shell {
+  height: 360px;
+  min-height: 230px;
+  max-height: 75vh;
+  overflow: hidden;
+  resize: vertical;
+}
+.code-workout-grid .code-editor-shell > textarea {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  resize: none;
+  overflow-y: auto;
+}
+.code-workout-grid .code-editor-shell > .code-editor-gutter {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
 .code-editor-shell { display: grid; grid-template-columns: 38px minmax(0, 1fr); min-width: 0; }
 .code-editor-gutter { overflow: hidden; padding: 18px 4px 18px 0; background: rgba(131,183,255,.035); color: #6482a0; text-align: right; user-select: none; font: 400 12px/1.65 'IBM Plex Mono', monospace; }
 .code-editor-gutter span { display: block; height: 1.65em; }

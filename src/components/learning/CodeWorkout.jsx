@@ -5,10 +5,18 @@ import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 import { prefetchJavaSyntaxRuntime, validateJavaSyntax } from '../../learning/javaSyntaxRuntime'
 
 // Rebuild line numbers only when the line count changes, not on every keystroke.
+// Large pastes can contain thousands of newlines. Rendering a span per line
+// creates thousands of DOM nodes and makes the editor unresponsive.
+const MAX_GUTTER_ROW_ELEMENTS = 200
+
 const CodeLineNumbers = memo(function CodeLineNumbers({ count, gutterRef }) {
   return (
     <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">
-      {Array.from({ length: count }, (_, index) => <span key={index}>{index + 1}</span>)}
+      {count <= MAX_GUTTER_ROW_ELEMENTS
+        ? Array.from({ length: count }, (_, index) => <span key={index}>{index + 1}</span>)
+        : <span style={{ display: 'block', height: 'auto', whiteSpace: 'pre' }}>
+            {Array.from({ length: count }, (_, index) => index + 1).join('\n')}
+          </span>}
     </div>
   )
 })
