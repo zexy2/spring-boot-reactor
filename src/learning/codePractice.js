@@ -366,8 +366,11 @@ function splitCodeComments(value) {
   let code = ''
   let comments = ''
   let unquotedCode = ''
+  let maskedLiterals = ''
+  const literals = []
   let mode = 'code'
   let index = 0
+  let literalStart = -1
 
   while (index < source.length) {
     const char = source[index]
@@ -376,17 +379,20 @@ function splitCodeComments(value) {
       if (mode === 'line-comment' && char === '\n') {
         code += '\n'
         unquotedCode += '\n'
+        maskedLiterals += '\n'
         mode = 'code'
         index += 1
       } else if (mode === 'block-comment' && char === '*' && next === '/') {
         code += '  '
         unquotedCode += '  '
+        maskedLiterals += '  '
         index += 2
         mode = 'code'
       } else {
         comments += char
         code += char === '\n' ? '\n' : ' '
         unquotedCode += char === '\n' ? '\n' : ' '
+        maskedLiterals += char === '\n' ? '\n' : ' '
         index += 1
       }
       continue
@@ -396,16 +402,24 @@ function splitCodeComments(value) {
       if (char === '\\' && index + 1 < source.length) {
         code += source.slice(index, index + 2)
         unquotedCode += '  '
+        maskedLiterals += '~~'
         index += 2
       } else if (mode === 'text-block' && source.startsWith('"""', index)) {
         code += '"""'
         unquotedCode += '   '
+        maskedLiterals += '"""'
         index += 3
+        literals.push({ start: literalStart, end: index, delimiterSize: 3 })
         mode = 'code'
       } else {
         code += char
         unquotedCode += char === '\n' ? '\n' : ' '
-        if ((mode === 'string' && char === '"') || (mode === 'character' && char === "'")) mode = 'code'
+        const closing = (mode === 'string' && char === '"') || (mode === 'character' && char === "'")
+        maskedLiterals += closing ? char : char === '\n' ? '\n' : '~'
+        if (closing) {
+          literals.push({ start: literalStart, end: index + 1, delimiterSize: 1 })
+          mode = 'code'
+        }
         index += 1
       }
       continue
@@ -414,23 +428,29 @@ function splitCodeComments(value) {
     if (char === '/' && (next === '/' || next === '*')) {
       code += '  '
       unquotedCode += '  '
+      maskedLiterals += '  '
       index += 2
       mode = next === '/' ? 'line-comment' : 'block-comment'
     } else if (source.startsWith('"""', index)) {
       code += '"""'
       unquotedCode += '   '
+      maskedLiterals += '"""'
+      literalStart = index
       index += 3
       mode = 'text-block'
     } else {
       code += char
       unquotedCode += char === '"' || char === "'" ? ' ' : char
-      if (char === '"') mode = 'string'
-      if (char === "'") mode = 'character'
+      maskedLiterals += char
+      if (char === '"' || char === "'") {
+        literalStart = index
+        mode = char === '"' ? 'string' : 'character'
+      }
       index += 1
     }
   }
 
-  return { code, comments, unquotedCode }
+  return { code, comments, unquotedCode, maskedLiterals, literals }
 }
 
 export function normalizeCodeAnswer(value) {
@@ -466,12 +486,23 @@ export function buildCodePractice(lesson) {
   }
 }
 
-function matchesExecutablePattern(pattern, code, unquotedCode) {
-  // Some checks legitimately include string literals; only the *start* of a
-  // matched code construct must be outside a literal, not its whole span.
+function matchesExecutablePattern(pattern, code, unquotedCode, maskedLiterals, literals) {
+  // Code-like text embedded in a Java literal must never satisfy a requirement.
+  // Keep literal delimiters for checks such as "[^"]+". Only restore literal
+  // contents when the requirement explicitly names that exact quoted value.
+  const checkedCode = [...maskedLiterals]
+  for (const { start, end, delimiterSize } of literals) {
+    if (delimiterSize !== 1 || code[start] !== '"') continue
+    const content = code.slice(start + 1, end - 1)
+    const escaped = content.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+    if (pattern.source.includes(`"${content}"`) || pattern.source.includes(`"${escaped}"`)) {
+      checkedCode.splice(start + 1, content.length, ...content)
+    }
+  }
   const matcher = new RegExp(pattern.source, `${pattern.flags.replace(/[gy]/g, '')}g`)
   let match
-  while ((match = matcher.exec(code)) !== null) {
+  const candidate = checkedCode.join('')
+  while ((match = matcher.exec(candidate)) !== null) {
     const firstToken = match[0].search(/\S/)
     if (firstToken >= 0) {
       const offset = match.index + firstToken
@@ -486,11 +517,11 @@ export function evaluateCodeRequirements(answer, challenge) {
   if (!challenge) return { checks: [], generatedMatch: false, staticSuccess: false }
 
   const normalized = normalizeCodeAnswer(answer)
-  const { code: withoutComments, comments, unquotedCode } = splitCodeComments(answer)
+  const { code: withoutComments, comments, unquotedCode, maskedLiterals, literals } = splitCodeComments(answer)
   const checks = (challenge.requirements ?? []).map(([label, needle]) => ({
     label,
     ok: needle instanceof RegExp
-      ? matchesExecutablePattern(needle, withoutComments, unquotedCode)
+      ? matchesExecutablePattern(needle, withoutComments, unquotedCode, maskedLiterals, literals)
       : normalized.includes(normalizeCodeAnswer(needle)),
   }))
   if (challenge.editableStarter) {

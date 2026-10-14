@@ -50,6 +50,32 @@ test('code-shaped text inside Java literals cannot satisfy regex requirements', 
   assert.equal(evaluateCodeRequirements(legitimateLiteral, challenge).staticSuccess, true)
 })
 
+test('Java literals cannot forge the second half of a multi-statement requirement', async () => {
+  const { parse } = await import('java-parser')
+  const challenge = codePracticeLibrary['java-class']
+  const forged = challenge.solution.replace(
+    'phone.price = 1299.0;',
+    'String misleading = "phone.price = 1299.0;";',
+  )
+  assert.doesNotThrow(() => parse(forged))
+  const result = evaluateCodeRequirements(forged, challenge)
+  assert.equal(result.checks.find(({ label }) => label === 'phone field atamaları')?.ok, false)
+  assert.equal(result.staticSuccess, false)
+
+  const legitimateExtraLiteral = challenge.solution.replace(
+    'phone.price = 1299.0;',
+    'String note = "phone.price = 1299.0;";\n    phone.price = 1299.0;',
+  )
+  assert.equal(evaluateCodeRequirements(legitimateExtraLiteral, challenge).staticSuccess, true)
+})
+
+test('requirements with exact Java string values still accept their real literals', () => {
+  for (const id of ['methods-constructor', 'java-collections', 'java-hashmap', 'java-exceptions']) {
+    const challenge = codePracticeLibrary[id]
+    assert.equal(evaluateCodeRequirements(challenge.solution, challenge).staticSuccess, true, id)
+  }
+})
+
 test('buildCodePractice returns named custom challenge before generated fallback', () => {
   const challenge = buildCodePractice({
     id: 'annotations',

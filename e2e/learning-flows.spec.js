@@ -187,6 +187,23 @@ test('code editor does not accept required Java code hidden inside string litera
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
 
+test('code editor rejects a field assignment faked inside a Java string', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  const forged = codePracticeLibrary['java-class'].solution.replace(
+    'phone.price = 1299.0;',
+    'String fake = "phone.price = 1299.0;";',
+  )
+  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(forged)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+
+  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.locator('.code-requirements')).toContainText('× phone field atamaları')
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
+})
+
 test('Java draft survives a reload immediately after typing', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
