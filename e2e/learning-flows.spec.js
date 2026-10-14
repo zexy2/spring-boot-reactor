@@ -215,6 +215,30 @@ test('indentation keeps selected code and skips a line outside the selection', a
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(expected)
   const selection = await editor.evaluate((element) => [element.selectionStart, element.selectionEnd])
   expect(selection).toEqual([0, '  class Test {\n    int a;\n'.length])
+
+  await editor.press('ControlOrMeta+z')
+  await expect(editor).toHaveValue(initial)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(initial)
+})
+
+test('code editor Tab indentation can be undone and stays in sync with the saved draft', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  const initial = 'class Test {}'
+  await editor.fill(initial)
+  await editor.press('End')
+  await editor.press('Tab')
+  await expect(editor).toHaveValue(`${initial}  `)
+
+  await editor.press('ControlOrMeta+z')
+  await expect(editor).toHaveValue(initial)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(initial)
+
+  await editor.press('ControlOrMeta+Shift+z')
+  await expect(editor).toHaveValue(`${initial}  `)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(`${initial}  `)
 })
 
 test('Java syntax and missing requirements are checked separately before recording progress', async ({ page }) => {

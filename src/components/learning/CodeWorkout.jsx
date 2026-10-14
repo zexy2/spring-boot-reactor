@@ -116,6 +116,9 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       const end = editor.selectionEnd
       if (start === end) {
         if (answer.length + 2 > MAX_CODE_DRAFT_LENGTH) return
+        // Native editing preserves browser undo/redo history (Ctrl/Cmd+Z),
+        // whereas a React-only value replacement discards the Tab edit.
+        if (document.execCommand('insertText', false, '  ')) return
         updateAnswer(`${answer.slice(0, start)}  ${answer.slice(end)}`)
         window.requestAnimationFrame(() => editor.setSelectionRange(start + 2, start + 2))
         return
@@ -129,7 +132,10 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       const lineCount = lines.length - (selected.endsWith('\n') ? 1 : 0)
       const indented = lines.map((line, index) => index < lineCount ? `  ${line}` : line).join('\n')
       if (answer.length + lineCount * 2 > MAX_CODE_DRAFT_LENGTH) return
-      updateAnswer(`${answer.slice(0, lineStart)}${indented}${answer.slice(end)}`)
+      editor.setSelectionRange(lineStart, end)
+      if (!document.execCommand('insertText', false, indented)) {
+        updateAnswer(`${answer.slice(0, lineStart)}${indented}${answer.slice(end)}`)
+      }
       window.requestAnimationFrame(() => editor.setSelectionRange(lineStart, end + lineCount * 2))
     }
   }
@@ -181,7 +187,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
             <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">{answer.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div>
             <textarea aria-label={`${lesson.title} kod editörü`} aria-describedby={editorHelpId} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder={isFragmentExercise ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'} />
           </div>
-          <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
+          <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Ctrl/Cmd+Z: geri al · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
       </div>
       <div className="code-requirements">
