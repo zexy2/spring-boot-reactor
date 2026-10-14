@@ -102,8 +102,44 @@ test('buildCodePractice generates challenge from eligible code note fragment', (
 
   assert.equal(challenge.id, 'generated-demo-generated')
   assert.equal(challenge.expected, 'public class Demo')
+  assert.equal(challenge.answerMode, 'fragment')
+  assert.equal(challenge.solution, 'public class Demo')
+  assert.equal(challenge.completedExample, lesson.code)
   assert.match(challenge.starter, /TODO: burayı sen yaz/)
   assert.deepEqual(challenge.requirements, [['public class Demo', 'public class Demo']])
+})
+
+test('generated fill-in-the-gap activities reject substrings hidden in unrelated answers', () => {
+  const java = buildCodePractice({
+    id: 'demo-gap',
+    code: 'public class Product { }',
+    codeNotes: [['public class Product', 'Class tanımı']],
+  })
+  assert.equal(evaluateCodeRequirements('public class Product', java).staticSuccess, true)
+  assert.equal(evaluateCodeRequirements('  public   class  Product  ', java).staticSuccess, true)
+  for (const answer of [
+    'class Product',
+    'public class product',
+    'public class Product { }',
+    '"public class Product"',
+    '// public class Product',
+    'not code: public class Product',
+  ]) {
+    assert.equal(evaluateCodeRequirements(answer, java).staticSuccess, false, answer)
+  }
+  assert.deepEqual(evaluateCodeRequirements('public class Product', java).checks,
+    [{ label: 'Eksik parçayı doğru tamamladın', ok: true }])
+})
+
+test('generated SQL keywords accept SQL casing, but still reject unrelated extra text', () => {
+  const sql = buildCodePractice({
+    id: 'sql-demo',
+    code: 'SELECT id FROM product;',
+    codeNotes: [['SELECT id', 'Seçilecek kolon']],
+  })
+  assert.equal(evaluateCodeRequirements('select id', sql).staticSuccess, true)
+  assert.equal(evaluateCodeRequirements('SELECT id FROM product;', sql).staticSuccess, false)
+  assert.equal(evaluateCodeRequirements('"SELECT id"', sql).staticSuccess, false)
 })
 
 test('buildCodePractice rejects non-code lessons and unusable fragments', () => {

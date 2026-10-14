@@ -47,6 +47,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const { checks, staticSuccess } = evaluateCodeRequirements(answer, challenge)
   const syntaxTemplates = getSyntaxTemplates(challenge)
   const syntaxRequired = syntaxTemplates.length > 0
+  const isFragmentExercise = challenge.answerMode === 'fragment'
   const syntaxOk = !syntaxRequired || syntaxResult?.ok === true
   const success = staticSuccess && syntaxOk
 
@@ -119,10 +120,14 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     }
   }
 
-  let feedbackTitle = success ? 'Gerekli kod parçalarını kurdun.' : 'Henüz eksik parça var.'
+  let feedbackTitle = success ? (isFragmentExercise ? 'Eksik parçayı doğru tamamladın.' : 'Gerekli kod parçalarını kurdun.') : 'Henüz eksik parça var.'
   let feedbackText = success
-    ? 'Statik gereksinimler doğrulandı. Pratik öğrenme kaydına işlendi; gerçek Java çalıştırma testi yapılmadı.'
-    : 'Requirement satırlarına bakıp kodu düzelt; doğrudan cevabı kopyalamadan bir kez daha dene.'
+    ? isFragmentExercise
+      ? 'Eksik parçanın metni doğrulandı. Bu alıştırma kod derleme veya davranış testi değildir.'
+      : 'Statik gereksinimler doğrulandı. Pratik öğrenme kaydına işlendi; gerçek Java çalıştırma testi yapılmadı.'
+    : isFragmentExercise
+      ? 'Soldaki kod iskeletindeki TODO konumuna gelecek tek parçayı yaz. Ek açıklama veya tüm kodu yapıştırma.'
+      : 'Requirement satırlarına bakıp kodu düzelt; doğrudan cevabı kopyalamadan bir kez daha dene.'
   if (checked && staticSuccess && syntaxRequired) {
     if (syntaxResult?.checking) {
       feedbackTitle = 'Java sözdizimi kontrol ediliyor…'
@@ -138,20 +143,22 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
 
   return (
     <section className={`code-workout ${passed || success ? 'passed' : ''}`}>
-      <div className="section-label"><span>KODU SEN YAZ</span><b>{passed || success ? '✓ TAMAMLANDI' : 'EDITOR CHALLENGE'}</b></div>
+      <div className="section-label"><span>{isFragmentExercise ? 'KOD PARÇASINI TAMAMLA' : 'KODU SEN YAZ'}</span><b>{passed || success ? '✓ TAMAMLANDI' : isFragmentExercise ? 'EKSİK PARÇA' : 'EDITOR CHALLENGE'}</b></div>
       <h2>{challenge.prompt}</h2>
       <p>{challenge.editableStarter
         ? 'Sağdaki Java iskeletindeki TODO satırlarını gerçek kodla değiştir. Gereksinimler ve Java sözdizimi kontrol edilir; kod derlenip çalıştırılmaz.'
-        : 'Eksik kodu kendin yaz. Kontrol, önemli söz dizimi ve kavramları arar; kod derlenip çalıştırılmaz.'}</p>
+        : isFragmentExercise
+          ? 'Soldaki TODO boşluğuna gelecek yalnızca eksik ifadeyi yaz. Kod çalıştırılmaz; ifade yazılışına göre kontrol edilir.'
+          : 'Eksik kodu kendin yaz. Kontrol, önemli söz dizimi ve kavramları arar; kod derlenip çalıştırılmaz.'}</p>
       <div className="code-workout-grid">
         <div>{challenge.editableStarter
           ? <><small>GÖREV VE BEKLENEN DAVRANIŞ</small><div className="code-workout-guide"><strong>HEDEF</strong><p>{challenge.expectedBehavior}</p><strong>DÜŞÜN</strong><p>{challenge.reviewQuestion}</p></div></>
           : <><small>STARTER</small><pre><code>{challenge.starter}</code></pre></>}
         </div>
-        <div><small>SENİN KODUN</small>
+        <div><small>{isFragmentExercise ? 'EKSİK İFADE' : 'SENİN KODUN'}</small>
           <div className="code-editor-shell">
             <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">{answer.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div>
-            <textarea aria-label={`${lesson.title} kod editörü`} aria-describedby={editorHelpId} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder="Eksik kodu buraya yaz..." />
+            <textarea aria-label={`${lesson.title} kod editörü`} aria-describedby={editorHelpId} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder={isFragmentExercise ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'} />
           </div>
           <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
@@ -168,7 +175,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
         <button className="reveal" onClick={() => setRevealed((value) => !value)}>{revealed ? 'Çözümü gizle' : 'Örnek çözümü göster'}</button>
       </div>
       {revealed && <p className="code-scroll-help code-solution-help">Örnek çözümde uzun satırları yana kaydır.</p>}
-      <AnimatePresence>{revealed && <motion.pre className="code-solution" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><code>{challenge.solution}</code></motion.pre>}</AnimatePresence>
+      <AnimatePresence>{revealed && <motion.pre className="code-solution" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><code>{challenge.completedExample ?? challenge.solution}</code></motion.pre>}</AnimatePresence>
     </section>
   )
 }

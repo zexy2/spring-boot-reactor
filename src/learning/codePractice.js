@@ -478,9 +478,12 @@ export function buildCodePractice(lesson) {
   const [fragment, explanation] = candidate
   return {
     id: `${lesson.id}-generated`,
+    answerMode: 'fragment',
+    caseInsensitive: lesson.id.startsWith('sql-') || lesson.id === 'database-acid',
     prompt: `Eksik parçayı kendin yaz: ${explanation}`,
     starter: source.replace(fragment, '/* TODO: burayı sen yaz */'),
-    solution: source,
+    solution: fragment,
+    completedExample: source,
     expected: fragment,
     requirements: [[fragment, fragment]],
   }
@@ -515,6 +518,21 @@ function matchesExecutablePattern(pattern, code, unquotedCode, maskedLiterals, l
 
 export function evaluateCodeRequirements(answer, challenge) {
   if (!challenge) return { checks: [], generatedMatch: false, staticSuccess: false }
+
+  if (challenge.answerMode === 'fragment') {
+    // In fill-in-the-gap activities, the answer must be the actual missing
+    // fragment. Finding a phrase in unrelated text is not evidence of mastery.
+    const normalizeFragment = (value) => {
+      const compact = String(value).trim().replace(/\s+/g, ' ')
+      return challenge.caseInsensitive ? compact.toLocaleLowerCase('en-US') : compact
+    }
+    const matches = normalizeFragment(answer) === normalizeFragment(challenge.expected ?? '')
+    return {
+      checks: [{ label: 'Eksik parçayı doğru tamamladın', ok: matches }],
+      generatedMatch: matches,
+      staticSuccess: matches && String(answer).trim().length > 0,
+    }
+  }
 
   const normalized = normalizeCodeAnswer(answer)
   const { code: withoutComments, comments, unquotedCode, maskedLiterals, literals } = splitCodeComments(answer)

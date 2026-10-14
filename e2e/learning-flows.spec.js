@@ -204,6 +204,27 @@ test('code editor rejects a field assignment faked inside a Java string', async 
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
 
+test('generated code gap accepts only the missing expression', async ({ page }) => {
+  await page.goto('?lesson=spring-vs-boot')
+  await openLearningPhase(page, 1)
+  const workout = page.locator('.code-workout')
+  const editor = workout.getByRole('textbox', { name: /kod editörü/ })
+  await expect(workout).toContainText('KOD PARÇASINI TAMAMLA')
+
+  await editor.fill('"@SpringBootApplication"')
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
+
+  await editor.fill('@SpringBootApplication')
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout.getByRole('status')).toContainText('Eksik parçayı doğru tamamladın.')
+  await expect(workout).toContainText('✓ TAMAMLANDI')
+
+  await workout.getByRole('button', { name: 'Örnek çözümü göster' }).click()
+  await expect(workout.locator('.code-solution')).toContainText('SpringApplication.run')
+})
+
 test('Java draft survives a reload immediately after typing', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
