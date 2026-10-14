@@ -385,6 +385,104 @@ test('Spring Boot exercises reject incorrect design or HTTP behavior', () => {
   }
 })
 
+test('Spring repository, transaction and exception checks reject code in the wrong scope', async () => {
+  const { parse } = await import('java-parser')
+  const repository = codePracticeLibrary.repository
+  const transactions = codePracticeLibrary.transactions
+  const exceptions = codePracticeLibrary.exceptions
+
+  const misplacedId = repository.solution.replace('  @Id\n  Long id;', '  Long id;')
+    + '\nclass OtherEntity { @Id Long id; }'
+  const misplacedQueries = repository.solution.replace(
+    '  List<Product> findByActiveTrueOrderByNameAsc();\n  Optional<Product> findBySku(String sku);',
+    '',
+  ) + '\ninterface OtherRepository { List<Product> findByActiveTrueOrderByNameAsc(); Optional<Product> findBySku(String sku); }'
+  const misplacedLedgerCalls = transactions.solution.replace(
+    '    ledger.debit(fromId, amount);\n    ledger.credit(toId, amount);',
+    '',
+  ).replace(
+    '  }\n}',
+    '  }\n  void audit(long fromId, long toId, BigDecimal amount) { ledger.debit(fromId, amount); ledger.credit(toId, amount); }\n}',
+  )
+  const reversedLedgerCalls = transactions.solution.replace(
+    '    ledger.debit(fromId, amount);\n    ledger.credit(toId, amount);',
+    '    ledger.credit(toId, amount);\n    ledger.debit(fromId, amount);',
+  )
+  const misplacedErrorResponse = exceptions.solution.replace(
+    '    return ResponseEntity.status(HttpStatus.NOT_FOUND)\n      .body(new ErrorResponse("PRODUCT_NOT_FOUND", ex.getMessage()));',
+    '    return null;',
+  ).replace(
+    '  }\n}',
+    '  }\n  ResponseEntity<ErrorResponse> unrelated(ProductNotFoundException ex) { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("PRODUCT_NOT_FOUND", ex.getMessage())); }\n}',
+  )
+
+  for (const [id, answer, label] of [
+    ['repository', misplacedId, 'JPA kimliği Product entity içinde'],
+    ['repository', misplacedQueries, 'Derived query metotları ProductRepository içinde'],
+    ['transactions', misplacedLedgerCalls, 'Tutar kontrolü ve debit/credit, TransferService.transfer() içinde ve doğru sırada'],
+    ['transactions', reversedLedgerCalls, 'Tutar kontrolü ve debit/credit, TransferService.transfer() içinde ve doğru sırada'],
+    ['exceptions', misplacedErrorResponse, '404 ve hata gövdesi ApiExceptionHandler.handle() içinde'],
+  ]) {
+    assert.doesNotThrow(() => parse(answer), `${id}: Java grammar is valid`)
+    const result = evaluateCodeRequirements(answer, codePracticeLibrary[id])
+    assert.equal(result.staticSuccess, false, `${id}: misplaced logic cannot pass`)
+    assert.equal(result.checks.find((check) => check.label === label)?.ok, false, `${id}: scope-specific feedback`)
+  }
+
+  for (const id of ['repository', 'transactions', 'exceptions']) {
+    assert.equal(evaluateCodeRequirements(codePracticeLibrary[id].solution, codePracticeLibrary[id]).staticSuccess, true, `${id}: published solution still passes`)
+  }
+})
+
+test('Spring controller, bean and dependency-injection checks reject misplaced implementations', async () => {
+  const { parse } = await import('java-parser')
+  const annotations = codePracticeLibrary.annotations.solution.replace(
+    '    return greetings.greet();',
+    '    return "Merhaba";',
+  ) + '\nclass OtherController { String extra() { return greetings.greet(); } }'
+  const beans = codePracticeLibrary.beans.solution.replace(
+    '  @Bean\n  Clock clock() {\n    return Clock.systemUTC();\n  }',
+    '',
+  ) + '\nclass OtherConfig { @Bean Clock clock() { return Clock.systemUTC(); } }'
+  const injection = codePracticeLibrary['ioc-di'].solution.replace(
+    '    return paymentClient.charge(cents);',
+    '    return false;',
+  ).replace('  }\n}', '  }\n  boolean other(int cents) { return paymentClient.charge(cents); }\n}')
+  const rest = codePracticeLibrary.rest.solution.replace(
+    '    ProductResponse saved = service.create(request);\n    return ResponseEntity.created(URI.create("/products/" + saved.id())).body(saved);',
+    '    return null;',
+  ).replace(
+    '  }\n}',
+    '  }\n  ResponseEntity<ProductResponse> other(CreateProductRequest request) { ProductResponse saved = service.create(request); return ResponseEntity.created(URI.create("/products/" + saved.id())).body(saved); }\n}',
+  )
+  const requestInputs = codePracticeLibrary['request-inputs'].solution.replace(
+    '    return request.name();',
+    '    return "unused";',
+  ).replace('  }\n}', '  }\n  String other(CreateProductRequest request) { return request.name(); }\n}')
+  const validation = codePracticeLibrary.validation.solution.replace(
+    'record CreateUserRequest(\n  @NotBlank String name,\n  @NotBlank @Email String email\n) {}',
+    'record CreateUserRequest(String name, String email) {}',
+  ) + '\nrecord OtherRequest(@NotBlank String name, @NotBlank @Email String email) {}'
+
+  for (const [id, answer, label] of [
+    ['annotations', annotations, 'Service çağrısı GreetingController.hello() içinde'],
+    ['beans', beans, 'Bean fabrikaları AppConfig içinde'],
+    ['ioc-di', injection, 'Geçersiz tutar kontrolü ve ödeme çağrısı checkout() içinde'],
+    ['rest', rest, 'Kayıt, 201 Location ve body create() içinde'],
+    ['request-inputs', requestInputs, 'Request body create() içinde kullanılıyor'],
+    ['validation', validation, 'DTO alanları üzerinde Bean Validation'],
+  ]) {
+    assert.doesNotThrow(() => parse(answer), `${id}: valid Java grammar`)
+    const result = evaluateCodeRequirements(answer, codePracticeLibrary[id])
+    assert.equal(result.staticSuccess, false, `${id}: misplaced logic cannot pass`)
+    assert.equal(result.checks.find((check) => check.label === label)?.ok, false, `${id}: targeted feedback`)
+  }
+
+  for (const id of ['annotations', 'beans', 'ioc-di', 'rest', 'request-inputs', 'validation']) {
+    assert.equal(evaluateCodeRequirements(codePracticeLibrary[id].solution, codePracticeLibrary[id]).staticSuccess, true, `${id}: published solution still passes`)
+  }
+})
+
 test('every syntax-enabled custom solution parses in at least one supported template', async () => {
   const { parse } = await import('java-parser')
 

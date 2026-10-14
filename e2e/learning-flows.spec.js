@@ -458,6 +458,32 @@ test('collections challenge rejects valid code copied into a different class', a
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
 
+test('Spring transaction exercise checks debit/credit inside transfer and accepts the corrected flow', async ({ page }) => {
+  await page.goto('?lesson=transactions')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  const editor = workout.getByRole('textbox', { name: /kod editörü/ })
+  const solution = codePracticeLibrary.transactions.solution
+  const wrongOrder = solution.replace(
+    '    ledger.debit(fromId, amount);\n    ledger.credit(toId, amount);',
+    '    ledger.credit(toId, amount);\n    ledger.debit(fromId, amount);',
+  )
+
+  await editor.fill(wrongOrder)
+  await expectCode(editor, wrongOrder)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
+  await expect(workout.locator('.code-requirements')).toContainText('× Tutar kontrolü ve debit/credit, TransferService.transfer() içinde ve doğru sırada')
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
+
+  await editor.press('ControlOrMeta+A')
+  await page.keyboard.insertText(solution)
+  await expectCode(editor, solution)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout).toContainText('✓ TAMAMLANDI')
+})
+
 test('generated code gap accepts only the missing expression', async ({ page }) => {
   await page.goto('?lesson=spring-vs-boot')
   await openLearningPhase(page, 1)
