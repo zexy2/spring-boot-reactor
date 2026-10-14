@@ -13,10 +13,14 @@ export function prefetchCodeWorkoutRuntime(lesson) {
   return Promise.resolve(null)
 }
 
-export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, onDraftChange }) {
+export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, savedDraftUpdatedAt, onDraftChange }) {
   const challenge = useMemo(() => buildCodePractice(lesson), [lesson])
   const initialAnswer = () => typeof savedDraft === 'string' ? savedDraft : challenge?.editableStarter ? challenge.starter : ''
   const [answer, setAnswer] = useState(initialAnswer)
+  // CodeMirror sends document changes synchronously. A verification click can
+  // arrive before React commits that change, so keep the latest text in a ref.
+  const answerRef = useRef(answer)
+  const latestLocalDraftTimestamp = useRef(0)
   const [checked, setChecked] = useState(false)
   const [checkedRequirements, setCheckedRequirements] = useState(null)
   const [revealed, setRevealed] = useState(false)
@@ -30,7 +34,10 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
 
   useEffect(() => {
     verificationId.current += 1
-    setAnswer(initialAnswer())
+    latestLocalDraftTimestamp.current = 0
+    const restored = initialAnswer()
+    answerRef.current = restored
+    setAnswer(restored)
     setChecked(false)
     setCheckedRequirements(null)
     setRevealed(false)
@@ -41,18 +48,20 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
 
   useEffect(() => {
     const restoredAnswer = initialAnswer()
-    // JSON restore can replace the saved draft without changing the active lesson.
-    // Local edits update answer and savedDraft in the same React event, so only
-    // an external change needs to reset the editor and any prior verification.
-    if (restoredAnswer === answer) return
+    // The parent batches React updates for locally saved drafts. Never let an
+    // older local snapshot overwrite text entered after that snapshot.
+    // A newer imported backup (or a draft cleared by restore) still applies.
+    if (restoredAnswer === answerRef.current) return
+    if (savedDraftUpdatedAt && savedDraftUpdatedAt <= latestLocalDraftTimestamp.current) return
     verificationId.current += 1
+    answerRef.current = restoredAnswer
     setAnswer(restoredAnswer)
     setChecked(false)
     setCheckedRequirements(null)
     setRevealed(false)
     setLimitReached(false)
     setSyntaxResult(null)
-  }, [savedDraft])
+  }, [savedDraft, savedDraftUpdatedAt])
 
   if (!challenge) return null
 
@@ -74,11 +83,15 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const updateAnswer = (nextAnswer) => {
     setLimitReached(false)
     verificationId.current += 1
+    answerRef.current = nextAnswer
     setAnswer(nextAnswer)
     setChecked(false)
     setCheckedRequirements(null)
     setSyntaxResult(null)
-    if (nextAnswer.length <= MAX_CODE_DRAFT_LENGTH) onDraftChange?.(lesson.id, nextAnswer)
+    if (nextAnswer.length <= MAX_CODE_DRAFT_LENGTH) {
+      const timestamp = onDraftChange?.(lesson.id, nextAnswer)
+      if (Number.isFinite(timestamp)) latestLocalDraftTimestamp.current = Math.max(latestLocalDraftTimestamp.current, timestamp)
+    }
   }
 
   const leaveEditor = () => {
@@ -92,9 +105,10 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   }
 
   const verify = async () => {
-    if (!answer.trim() || syntaxResult?.checking) return
+    const currentAnswer = answerRef.current
+    if (!currentAnswer.trim() || syntaxResult?.checking) return
     const thisCheck = ++verificationId.current
-    const currentRequirements = evaluateCodeRequirements(answer, challenge)
+    const currentRequirements = evaluateCodeRequirements(currentAnswer, challenge)
     setCheckedRequirements(currentRequirements)
     setChecked(true)
     if (!syntaxRequired) {
@@ -104,7 +118,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
 
     setSyntaxResult({ checking: true, ok: false })
     try {
-      const result = await validateJavaSyntax(answer, syntaxTemplates)
+      const result = await validateJavaSyntax(currentAnswer, syntaxTemplates)
       if (verificationId.current !== thisCheck) return
       setSyntaxResult({ checking: false, ok: result.ok, message: result.message })
       if (result.ok && currentRequirements.staticSuccess && !passed) onComplete(lesson.id)

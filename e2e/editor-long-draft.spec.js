@@ -146,6 +146,25 @@ test('native clipboard paste preserves a selected multiline draft, undo and save
   await expectCode(editor, replacement)
 })
 
+test('select-all and multiline replacement include offscreen code on mobile and desktop', async ({ page }) => {
+  const editor = await openEditor(page)
+  const initial = `class LongDraft {\n${'  int oldValue;\n'.repeat(1000)}}`
+  const replacement = 'class Replaced {\n  int value;\n}'
+  await editor.fill(initial)
+  await expectCode(editor, initial)
+  await editor.focus()
+  await editor.press('ControlOrMeta+a')
+  expect(await editor.evaluate((node) => node.closest('.cm-editor').__codeSelection()))
+    .toEqual([0, initial.length])
+  await page.keyboard.insertText(replacement)
+  await expectCode(editor, replacement)
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key))?.learning?.['java-class']?.codeDraft, SNAPSHOT_KEY)).toBe(replacement)
+  await editor.press('ControlOrMeta+z')
+  await expectCode(editor, initial)
+  await editor.press('ControlOrMeta+Shift+z')
+  await expectCode(editor, replacement)
+})
+
 test('native clipboard paste respects the draft length limit without changing saved text', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   const editor = await openEditor(page)

@@ -103,22 +103,36 @@ const readinessMetricMeta = [
   ['interview', 'Mülakat', '60 saniyelik mülakat turlarını tamamla.'],
 ]
 
-function ReadinessPanel({ readiness, onClose }) {
+function ReadinessPanel({ readiness, onClose, onDismiss, triggerRef }) {
   const closeRef = useRef(null)
+  const panelRef = useRef(null)
   const metrics = readinessMetricMeta.map(([key, label, advice]) => ({ key, label, advice, value: readiness[key] ?? 0 }))
   const weakest = metrics.reduce((current, metric) => (metric.value < current.value ? metric : current), metrics[0])
 
   useEffect(() => {
     closeRef.current?.focus()
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+    const handleOutsidePointer = (event) => {
+      if (!panelRef.current?.contains(event.target) && !triggerRef.current?.contains(event.target)) {
+        // Keep the pointer target focused instead of jumping back to the trigger.
+        onDismiss()
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+    document.addEventListener('pointerdown', handleOutsidePointer)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handleOutsidePointer)
+    }
+  }, [onClose, onDismiss, triggerRef])
 
   return (
-    <aside className="readiness-panel" role="dialog" aria-modal="false" aria-labelledby="readiness-title">
+    <aside ref={panelRef} className="readiness-panel" role="dialog" aria-modal="false" aria-labelledby="readiness-title">
       <div className="readiness-panel-head">
         <div><small id="readiness-title">MÜLAKAT HAZIRLIK</small><strong>{readiness.score}%</strong></div>
         <button ref={closeRef} onClick={onClose} aria-label="Hazırlık detayını kapat">×</button>
@@ -128,7 +142,7 @@ function ReadinessPanel({ readiness, onClose }) {
         {metrics.map((metric) => (
           <div className="readiness-metric" key={metric.key}>
             <span><small>{metric.label}</small><b>{metric.value}%</b></span>
-            <i><em style={{ width: `${metric.value}%` }} /></i>
+            <i role="progressbar" aria-label={`${metric.label} düzeyi`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={metric.value}><em style={{ width: `${metric.value}%` }} /></i>
           </div>
         ))}
       </div>
@@ -2743,7 +2757,7 @@ function GuidedLearningLesson({ lesson, completed, status, learningRecordData, c
           <div className="guided-lab-divider"><span>ŞİMDİ SEN DENE</span><p>Önce kontrollü deney, sonra serbestçe kurcala.</p></div>
           <LessonLab lesson={lesson} />
           <MemoryGame lesson={lesson} />
-          <CodeWorkout lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
+          <CodeWorkout lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} savedDraftUpdatedAt={learningRecordData.codeDraftUpdatedAt} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
           <DebugWorkout lesson={lesson} record={learningRecordData} onAttempt={onDebugAttempt} />
           <div className="phase-actions"><button type="button" className="reveal" onClick={() => selectPhase('understand')}>← Anla</button><button type="button" className="complete-button" onClick={() => selectPhase('recall')}>Hatırla / test et →</button></div>
         </div>
@@ -3008,6 +3022,7 @@ function App() {
   const [storageConflict, setStorageConflict] = useState(false)
   const [recoveryIssue, setRecoveryIssue] = useState(initialState.blocked ? initialState.reason : '')
   const [roadmapOpen, setRoadmapOpen] = useState(false)
+  const roadmapToggleRef = useRef(null)
   const [roadmapQuery, setRoadmapQuery] = useState('')
   const [roadmapFilter, setRoadmapFilter] = useState('all')
   const [readinessOpen, setReadinessOpen] = useState(false)
@@ -3205,8 +3220,9 @@ function App() {
   const flushCodeDraft = useCallback((lessonId, draft) => {
     const { completed: currentCompleted, learning: currentLearning } = latestProgress.current
     const previous = currentLearning[lessonId] ?? {}
-    if (previous.codeDraft === draft) return
-    const draftRecord = { codeDraft: draft, codeDraftUpdatedAt: Date.now() }
+    if (previous.codeDraft === draft) return previous.codeDraftUpdatedAt ?? 0
+    // Imports may carry future timestamps. Local edits must stay newer.
+    const draftRecord = { codeDraft: draft, codeDraftUpdatedAt: Math.max(Date.now(), (previous.codeDraftUpdatedAt ?? 0) + 1) }
     const updatedLearning = {
       ...currentLearning,
       [lessonId]: { ...previous, ...draftRecord },
@@ -3219,7 +3235,7 @@ function App() {
       pendingCodeDrafts.current.clear()
       setLearning((state) => mergePendingCodeDrafts(state, drafts))
     }, 350)
-    if (recoveryIssue || storageConflict) return
+    if (recoveryIssue || storageConflict) return draftRecord.codeDraftUpdatedAt
     try {
       // Persist each edit synchronously so immediate reload cannot drop the last keystroke.
       // Optimistic concurrency still prevents overwriting another tab's changes.
@@ -3231,6 +3247,7 @@ function App() {
       if (error instanceof ProgressStorageConflictError) setStorageConflict(true)
       else setStorageWarning(true)
     }
+    return draftRecord.codeDraftUpdatedAt
   }, [recoveryIssue, storageConflict])
 
   const saveDebugAttempt = (lessonId, attempt) => {
@@ -3331,6 +3348,7 @@ function App() {
     setReadinessOpen(false)
     window.requestAnimationFrame(() => readinessTriggerRef.current?.focus())
   }, [])
+  const dismissReadiness = useCallback(() => setReadinessOpen(false), [])
 
   const prefetchLessonRuntime = (lesson) => {
     void prefetchLessonPlaygroundRuntime(lesson)
@@ -3375,11 +3393,21 @@ function App() {
         </div>
       )}
       {storageWarning && !storageConflict && <div className="storage-warning" role="alert">İlerleme bu cihazda kaydedilemiyor. Tarayıcı depolama ayarlarını kontrol et; sayfayı yenilersen son çalışmaların kaybolabilir. JSON yedeğini indir.</div>}
-      {readinessOpen && <div id="readiness-panel"><ReadinessPanel readiness={readiness} onClose={closeReadiness} /></div>}
+      {readinessOpen && <div id="readiness-panel"><ReadinessPanel readiness={readiness} onClose={closeReadiness} onDismiss={dismissReadiness} triggerRef={readinessTriggerRef} /></div>}
 
       <div className="shell">
-        <aside className={`roadmap ${roadmapOpen ? 'is-open' : ''}`} aria-label="Java Backend öğrenme konu haritası">
-          <button className="roadmap-mobile-toggle" type="button" aria-expanded={roadmapOpen} aria-controls="roadmap-navigation" onClick={() => setRoadmapOpen((value) => !value)}>
+        <aside
+          className={`roadmap ${roadmapOpen ? 'is-open' : ''}`}
+          aria-label="Java Backend öğrenme konu haritası"
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !roadmapOpen || !window.matchMedia('(max-width: 640px)').matches) return
+            event.preventDefault()
+            event.stopPropagation()
+            setRoadmapOpen(false)
+            roadmapToggleRef.current?.focus()
+          }}
+        >
+          <button ref={roadmapToggleRef} className="roadmap-mobile-toggle" type="button" aria-expanded={roadmapOpen} aria-controls="roadmap-navigation" onClick={() => setRoadmapOpen((value) => !value)}>
             <span><strong>Konu haritası</strong><small>{lessons.length} ders · Java, Spring Boot ve daha fazlası</small></span>
             <span aria-hidden="true">{roadmapOpen ? 'Kapat −' : 'Dersleri aç +'}</span>
           </button>
@@ -3424,6 +3452,9 @@ function App() {
                         navigateToLesson(lesson.id)
                         if (window.matchMedia('(max-width: 640px)').matches) {
                           setRoadmapOpen(false)
+                          if (lesson.id === activeId) {
+                            window.requestAnimationFrame(() => learningAreaRef.current?.focus({ preventScroll: true }))
+                          }
                         }
                       }}
                       onMouseEnter={() => prefetchLessonRuntime(lesson)}

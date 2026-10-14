@@ -3,7 +3,7 @@ import { EditorState } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
 import { defaultHighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { java } from '@codemirror/lang-java'
-import { history, historyKeymap, indentMore } from '@codemirror/commands'
+import { history, historyKeymap, indentMore, selectAll } from '@codemirror/commands'
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 
 // CodeMirror only renders visible lines, even with thousands of blank lines.
@@ -45,6 +45,8 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
       EditorView.contentAttributes.of({ 'aria-label': label, 'aria-describedby': helpId, 'aria-multiline': 'true', 'data-maxlength': String(MAX_CODE_DRAFT_LENGTH) }),
       placeholder(fragment ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'),
       keymap.of([
+        // The browser can only select rendered lines of a virtualized document.
+        { key: 'Mod-a', run: selectAll },
         { key: 'Tab', run: insertSpaces },
         { key: 'Escape', run: () => { callbacks.current.onEscape(); return true } },
         ...historyKeymap,
@@ -87,7 +89,8 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
         const head = view.posAtDOM(selected.focusNode, selected.focusOffset)
         const range = view.state.selection.main
         const stateSelectionVisible = range.from >= view.viewport.from && range.to <= view.viewport.to
-        if (anchor !== head && (range.empty || stateSelectionVisible ||
+        const completeDocumentSelected = range.from === 0 && range.to === view.state.doc.length
+        if (!completeDocumentSelected && anchor !== head && (range.empty || stateSelectionVisible ||
             (Math.min(anchor, head) === 0 && Math.max(anchor, head) === view.state.doc.length))) {
           // A fresh visible DOM selection can be ahead of CodeMirror's cached
           // selection. Keep CodeMirror's range when it spans virtualized lines.

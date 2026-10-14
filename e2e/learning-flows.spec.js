@@ -276,7 +276,8 @@ test('code editor line numbers track added and removed lines without losing the 
 })
 
 test('Java syntax and missing requirements are checked separately before recording progress', async ({ page }) => {
-  await page.goto('?lesson=java-class')
+  // External font CSS can delay the load event; React readiness is asserted below.
+  await page.goto('?lesson=java-class', { waitUntil: 'domcontentloaded' })
   await openLearningPhase(page, 1)
 
   const workout = page.locator('.code-workout')
@@ -304,12 +305,22 @@ test('Java syntax and missing requirements are checked separately before recordi
   expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
 
   await editor.fill(`${codePracticeLibrary['java-class'].solution}\n@@@`)
+  expect(await workout.locator('.cm-editor').evaluate((node) => node.__getCodeDraft()))
+    .toBe(`${codePracticeLibrary['java-class'].solution}\n@@@`)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(feedback).toContainText('Java sözdizimi hatası var.')
   await expect(requirements).toContainText('× Java sözdizimi')
   expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
 
-  await editor.fill(codePracticeLibrary['java-class'].solution)
+  // CodeMirror virtualizes its contenteditable DOM. Exercise the real user's
+  // select-all + replacement path instead of Playwright's DOM-only fill range.
+  await editor.focus()
+  await editor.press('ControlOrMeta+a')
+  expect(await workout.locator('.cm-editor').evaluate((node) => node.__codeSelection()))
+    .toEqual([0, `${codePracticeLibrary['java-class'].solution}\n@@@`.length])
+  await page.keyboard.insertText(codePracticeLibrary['java-class'].solution)
+  expect(await workout.locator('.cm-editor').evaluate((node) => node.__getCodeDraft()))
+    .toBe(codePracticeLibrary['java-class'].solution)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(feedback).toContainText('Java sözdizimi geçerli.')
   await expect(workout).toContainText('✓ TAMAMLANDI')
@@ -535,6 +546,29 @@ test('restoring a newer JSON code draft updates an open editor before the next e
   await page.reload()
   await openLearningPhase(page, 1)
   await expectCode(editor, editedDraft)
+})
+
+test('delayed autosave cannot rewind a newer Java editor draft', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+  const workout = page.locator('.code-workout')
+  const editor = workout.getByRole('textbox', { name: /kod editörü/ })
+  const firstDraft = codePracticeLibrary['java-class'].solution
+  const latestDraft = `${firstDraft}\n@@@`
+
+  await editor.fill(firstDraft)
+  await expectCode(editor, firstDraft)
+  // Cross the 350 ms app-state debounce while the user is still editing.
+  await page.waitForTimeout(300)
+  await editor.fill(latestDraft)
+  await expectCode(editor, latestDraft)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(latestDraft)
+  await page.waitForTimeout(450)
+  await expectCode(editor, latestDraft)
+
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi hatası var.')
+  expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
 })
 
 test('replacing a JSON backup without a draft clears the open editor', async ({ page }) => {
