@@ -185,7 +185,14 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   expect(helpId).toBeTruthy()
   const help = page.locator(`[id="${helpId}"]`)
   await expect(help).toBeVisible()
-  await expect(help).toContainText('Esc: düğmelere geç')
+  await expect(help).toContainText('Esc: editörden çık')
+
+  await editor.fill('')
+  await expect(workout.getByRole('button', { name: 'Kodu kontrol et' })).toBeDisabled()
+  await editor.press('Escape')
+  await expect(workout.getByRole('group', { name: 'Kod çalışması eylemleri' })).toBeFocused()
+  await expect(workout.getByRole('button', { name: 'Örnek çözümü göster' })).not.toBeFocused()
+  await editor.focus()
 
   await editor.fill('class Test {}')
   await editor.press('End')

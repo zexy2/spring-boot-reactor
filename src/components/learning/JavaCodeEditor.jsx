@@ -25,7 +25,10 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
         }
         return indented
       }
-      if (view.state.doc.length + 2 > MAX_CODE_DRAFT_LENGTH) return true
+      if (view.state.doc.length + 2 > MAX_CODE_DRAFT_LENGTH) {
+        queueMicrotask(() => callbacks.current.onLimitReached?.())
+        return true
+      }
       view.dispatch(view.state.replaceSelection('  '), { scrollIntoView: true, userEvent: 'input' })
       return true
     }

@@ -81,6 +81,16 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     if (nextAnswer.length <= MAX_CODE_DRAFT_LENGTH) onDraftChange?.(lesson.id, nextAnswer)
   }
 
+  const leaveEditor = () => {
+    const actions = actionsRef.current
+    if (!actions) return
+    const verifyButton = actions.querySelector('.complete-button')
+    // The answer can be empty (or syntax checking still in progress).
+    // Keep Escape neutral; never move focus straight to "show solution".
+    if (verifyButton && !verifyButton.disabled) verifyButton.focus()
+    else actions.focus()
+  }
+
   const verify = async () => {
     if (!answer.trim() || syntaxResult?.checking) return
     const thisCheck = ++verificationId.current
@@ -149,11 +159,11 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
         </div>
         <div><small>{isFragmentExercise ? 'EKSİK İFADE' : 'SENİN KODUN'}</small>
           <Suspense fallback={<div className="code-editor-shell code-editor-loading" role="status">Java editörü yükleniyor…</div>}>
-            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={() => actionsRef.current?.querySelector("button:not(:disabled)")?.focus()} onLimitReached={() => setLimitReached(true)} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
+            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={leaveEditor} onLimitReached={() => setLimitReached(true)} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
           </Suspense>
           <div className="code-editor-count" aria-label="Kod uzunluğu">{answer.length.toLocaleString('tr-TR')} / {MAX_CODE_DRAFT_LENGTH.toLocaleString('tr-TR')} karakter</div>
-          {limitReached && <p className="code-editor-limit-alert" role="status">20.000 karakter sınırı aşıldı. Devam etmek için kodu kısalt.</p>}
-          <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Ctrl/Cmd+Z: geri al · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
+          {limitReached && <p className="code-editor-limit-alert" role="status">20.000 karakter sınırı nedeniyle ekleme engellendi. Yer açmak için kodu kısalt.</p>}
+          <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Ctrl/Cmd+Z: geri al · Shift+Tab: önceki alan · Esc: editörden çık · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
       </div>
       <div className="code-requirements">
@@ -162,7 +172,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       </div>
       {checked && <div className={`code-workout-feedback ${success ? 'good' : 'bad'}`} role="status" aria-live="polite" aria-atomic="true"><strong>{feedbackTitle}</strong><span>{feedbackText}</span></div>}
       {challenge.hint && <details className="code-workout-hint"><summary>İpucu göster</summary><p>{challenge.hint}</p></details>}
-      <div className="code-workout-actions" ref={actionsRef}>
+      <div className="code-workout-actions" ref={actionsRef} role="group" aria-label="Kod çalışması eylemleri" tabIndex={-1}>
         <button className="complete-button" onClick={verify} disabled={!answer.trim() || syntaxResult?.checking}>{syntaxResult?.checking ? 'Kontrol ediliyor…' : 'Kodu kontrol et'}</button>
         {challenge.editableStarter && <button className="reveal" onClick={() => { updateAnswer(challenge.starter); setRevealed(false) }}>Baştan başla</button>}
         <button className="reveal" onClick={() => setRevealed((value) => !value)}>{revealed ? 'Çözümü gizle' : 'Örnek çözümü göster'}</button>

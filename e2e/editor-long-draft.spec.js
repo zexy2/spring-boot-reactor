@@ -97,4 +97,11 @@ test('large multiline input supports undo and enforces the draft size limit', as
   await editor.fill('class NewProduct {}')
   await expectCode(editor, 'class NewProduct {}')
   await expect(page.locator('.code-editor-limit-alert')).toHaveCount(0)
+
+  const nearLimit = 'x'.repeat(19999)
+  await editor.fill(nearLimit)
+  await editor.press('End')
+  await editor.press('Tab')
+  await expectCode(editor, nearLimit)
+  await expect(page.locator('.code-editor-limit-alert')).toContainText('ekleme engellendi')
 })
