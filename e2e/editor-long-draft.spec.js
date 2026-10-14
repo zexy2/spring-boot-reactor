@@ -103,6 +103,62 @@ test('composition input remains owned by CodeMirror even if insertText reports n
   expect(details).toEqual({ prevented: false, afterCompositionPrevented: true })
 })
 
+test('Ctrl+Enter does not verify a lesson during IME composition', async ({ page }) => {
+  const editor = await openEditor(page)
+  await editor.fill('class Demo {}')
+  const details = await editor.evaluate((content) => {
+    content.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' }))
+    const shortcut = new KeyboardEvent('keydown', {
+      bubbles: true, cancelable: true, key: 'Enter', ctrlKey: true, isComposing: false,
+    })
+    content.dispatchEvent(shortcut)
+    content.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '' }))
+    const lateEvent = new KeyboardEvent('keydown', {
+      bubbles: true, cancelable: true, key: 'Enter', ctrlKey: true, isComposing: true,
+    })
+    content.dispatchEvent(lateEvent)
+    return { prevented: shortcut.defaultPrevented, latePrevented: lateEvent.defaultPrevented }
+  })
+  expect(details).toEqual({ prevented: false, latePrevented: false })
+  await expect(page.locator('.code-workout-feedback')).toHaveCount(0)
+  await editor.press('ControlOrMeta+Enter')
+  await expect(page.locator('.code-workout-feedback')).toBeVisible()
+})
+
+test('native clipboard paste preserves a selected multiline draft, undo and saved progress', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const editor = await openEditor(page)
+  const initial = 'class Demo { int old = 1; }'
+  const replacement = 'class Demo {\n  String message = "Merhaba";\n  int count = 2;\n}'
+  await editor.fill(initial)
+  await editor.focus()
+  await editor.press('ControlOrMeta+a')
+  await page.evaluate((text) => navigator.clipboard.writeText(text), replacement)
+  await editor.press('ControlOrMeta+v')
+  await expectCode(editor, replacement)
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key))?.learning?.['java-class']?.codeDraft, SNAPSHOT_KEY)).toBe(replacement)
+  await editor.press('ControlOrMeta+z')
+  await expectCode(editor, initial)
+  await editor.press('ControlOrMeta+Shift+z')
+  await expectCode(editor, replacement)
+  await page.reload()
+  await page.locator('.learning-phase-nav button').nth(1).click()
+  await expectCode(editor, replacement)
+})
+
+test('native clipboard paste respects the draft length limit without changing saved text', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const editor = await openEditor(page)
+  const currentDraft = 'x'.repeat(19999)
+  await editor.fill(currentDraft)
+  await editor.press('End')
+  await page.evaluate(() => navigator.clipboard.writeText('oversized'))
+  await editor.press('ControlOrMeta+v')
+  await expectCode(editor, currentDraft)
+  await expect(page.locator('.code-editor-limit-alert')).toContainText('20.000 karakter sınırı')
+  await expect.poll(() => page.evaluate((key) => JSON.parse(localStorage.getItem(key))?.learning?.['java-class']?.codeDraft, SNAPSHOT_KEY)).toBe(currentDraft)
+})
+
 test('long Java drafts immediately preserve each keystroke and survive reload', async ({ page }) => {
   const editor = await openEditor(page)
   for (const length of [5000, 19000]) {

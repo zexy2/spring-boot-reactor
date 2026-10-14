@@ -55,14 +55,16 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
     ]
     const makeState = (doc) => EditorState.create({ doc, extensions })
     const view = new EditorView({ state: makeState(value), parent: mountRef.current })
+    let compositionActive = false
     // Catch the shortcut before platform-specific mobile input handling.
     const onShortcut = (event) => {
-      if (event.key !== 'Enter' || (!event.ctrlKey && !event.metaKey)) return
+      // Enter confirms composed text in an IME. Verification must wait until
+      // the composition finishes, even when a browser omits isComposing.
+      if (compositionActive || event.isComposing || event.key !== 'Enter' || (!event.ctrlKey && !event.metaKey)) return
       event.preventDefault()
       event.stopPropagation()
       callbacks.current.onVerify()
     }
-    let compositionActive = false
     const onCompositionStart = () => { compositionActive = true }
     const onCompositionEnd = () => { compositionActive = false }
     const onMultiCharacterInsert = (event) => {
