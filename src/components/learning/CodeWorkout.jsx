@@ -32,6 +32,19 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     return () => { verificationId.current += 1 }
   }, [lesson.id, challenge?.editableStarter, challenge?.starter])
 
+  useEffect(() => {
+    const restoredAnswer = initialAnswer()
+    // JSON restore can replace the saved draft without changing the active lesson.
+    // Local edits update answer and savedDraft in the same React event, so only
+    // an external change needs to reset the editor and any prior verification.
+    if (restoredAnswer === answer) return
+    verificationId.current += 1
+    setAnswer(restoredAnswer)
+    setChecked(false)
+    setRevealed(false)
+    setSyntaxResult(null)
+  }, [savedDraft])
+
   if (!challenge) return null
 
   const { checks, staticSuccess, feedback } = evaluateCodeRequirements(answer, challenge)

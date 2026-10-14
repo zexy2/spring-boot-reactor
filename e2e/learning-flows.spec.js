@@ -429,6 +429,52 @@ test('JSON backup can be downloaded, imported and retained after refresh', async
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
+test('restoring a newer JSON code draft updates an open editor before the next edit', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  await editor.fill('class Product { int oldStock; }')
+  const backup = await openBackup(page)
+  const imported = await storedProgress(page)
+  const restoredDraft = 'class Product {\n  int importedStock;\n}'
+  imported.learning['java-class'].codeDraft = restoredDraft
+  imported.learning['java-class'].codeDraftUpdatedAt = Date.now() + 60_000
+
+  await importBackup(page, backup, imported)
+  await expect(editor).toHaveValue(restoredDraft)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(restoredDraft)
+
+  const editedDraft = `${restoredDraft}\n// edited after restore`
+  await editor.fill(editedDraft)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(editedDraft)
+  await page.reload()
+  await openLearningPhase(page, 1)
+  await expect(editor).toHaveValue(editedDraft)
+})
+
+test('replacing a JSON backup without a draft clears the open editor', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  const starter = await editor.inputValue()
+  await editor.fill('class Product { int unsavedStock; }')
+  const backup = await openBackup(page)
+  const imported = await storedProgress(page)
+  delete imported.learning['java-class'].codeDraft
+  delete imported.learning['java-class'].codeDraftUpdatedAt
+  await backup.getByRole('combobox').selectOption('replace')
+  page.once('dialog', (dialog) => dialog.accept())
+  await backup.locator('input[type=file]').setInputFiles({
+    name: 'replace-backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(imported)),
+  })
+
+  await expect(backup.getByRole('status')).toContainText('geri yüklendi')
+  await expect(editor).toHaveValue(starter)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBeUndefined()
+})
+
 test('invalid JSON backup is rejected without changing saved progress', async ({ page }) => {
   await page.goto('./')
   const backup = await openBackup(page)
