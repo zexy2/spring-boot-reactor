@@ -172,6 +172,24 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
 })
 
+test('indentation keeps selected code and skips a line outside the selection', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  const initial = 'class Test {\n  int a;\n  int b;\n}'
+  await editor.fill(initial)
+  await editor.evaluate((element) => element.setSelectionRange(0, 'class Test {\n  int a;\n'.length))
+  await editor.press('Tab')
+
+  const expected = '  class Test {\n    int a;\n  int b;\n}'
+  await expect(editor).toHaveValue(expected)
+  await expect(editor).toBeFocused()
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(expected)
+  const selection = await editor.evaluate((element) => [element.selectionStart, element.selectionEnd])
+  expect(selection).toEqual([0, '  class Test {\n    int a;\n'.length])
+})
+
 test('code editor does not accept required Java code hidden inside string literals', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)

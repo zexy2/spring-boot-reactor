@@ -116,8 +116,23 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       const editor = event.currentTarget
       const start = editor.selectionStart
       const end = editor.selectionEnd
-      updateAnswer(`${answer.slice(0, start)}  ${answer.slice(end)}`)
-      window.requestAnimationFrame(() => editor.setSelectionRange(start + 2, start + 2))
+      if (start === end) {
+        if (answer.length + 2 > MAX_CODE_DRAFT_LENGTH) return
+        updateAnswer(`${answer.slice(0, start)}  ${answer.slice(end)}`)
+        window.requestAnimationFrame(() => editor.setSelectionRange(start + 2, start + 2))
+        return
+      }
+
+      // Indent selected lines without replacing (and losing) the selected code.
+      // A selection ending at the start of the next line excludes that line.
+      const lineStart = answer.lastIndexOf('\n', start - 1) + 1
+      const selected = answer.slice(lineStart, end)
+      const lines = selected.split('\n')
+      const lineCount = lines.length - (selected.endsWith('\n') ? 1 : 0)
+      const indented = lines.map((line, index) => index < lineCount ? `  ${line}` : line).join('\n')
+      if (answer.length + lineCount * 2 > MAX_CODE_DRAFT_LENGTH) return
+      updateAnswer(`${answer.slice(0, lineStart)}${indented}${answer.slice(end)}`)
+      window.requestAnimationFrame(() => editor.setSelectionRange(lineStart, end + lineCount * 2))
     }
   }
 
@@ -161,7 +176,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
             <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">{answer.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div>
             <textarea aria-label={`${lesson.title} kod editörü`} aria-describedby={editorHelpId} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder={isFragmentExercise ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'} />
           </div>
-          <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
+          <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
       </div>
       <div className="code-requirements">
