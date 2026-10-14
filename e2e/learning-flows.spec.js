@@ -222,6 +222,23 @@ test('code editor rejects a field assignment faked inside a Java string', async 
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
 
+test('code editor requires Product fields in Product rather than a nested class', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  const fakeAnswer = codePracticeLibrary['java-class'].solution.replace(
+    '  String name;\n  double price;',
+    '  class Nested { String name; double price; }',
+  )
+  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(fakeAnswer)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+
+  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.locator('.code-requirements')).toContainText('× name ve price, Product sınıfında')
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
+})
+
 test('generated code gap accepts only the missing expression', async ({ page }) => {
   await page.goto('?lesson=spring-vs-boot')
   await openLearningPhase(page, 1)

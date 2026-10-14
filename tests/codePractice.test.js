@@ -69,6 +69,57 @@ test('Java literals cannot forge the second half of a multi-statement requiremen
   assert.equal(evaluateCodeRequirements(legitimateExtraLiteral, challenge).staticSuccess, true)
 })
 
+test('Java class challenge requires fields inside Product, not a different class', async () => {
+  const challenge = codePracticeLibrary['java-class']
+  const misplaced = challenge.solution.replace('  String name;\n  double price;', '')
+    + '\nclass Other { String name; double price; }'
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(misplaced))
+  const result = evaluateCodeRequirements(misplaced, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label === 'name ve price, Product sınıfında')?.ok, false)
+})
+
+test('Java class challenge rejects fields declared only in a nested class', async () => {
+  const challenge = codePracticeLibrary['java-class']
+  const nested = challenge.solution.replace('  String name;\n  double price;',
+    '  class Nested { String name; double price; }')
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(nested))
+  const result = evaluateCodeRequirements(nested, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label === 'name ve price, Product sınıfında')?.ok, false)
+})
+
+test('Java class challenge rejects required assignments in an unrelated method', async () => {
+  const challenge = codePracticeLibrary['java-class']
+  const misplaced = challenge.solution.replace(
+    '    Product phone = new Product();\n    phone.name = "Telefon";\n    phone.price = 1299.0;',
+    '',
+  ) + '\nclass Other { void unused() { Product phone = new Product(); phone.name = "Telefon"; phone.price = 1299.0; } }'
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(misplaced))
+  const result = evaluateCodeRequirements(misplaced, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label.includes('Demo.run()'))?.ok, false)
+})
+
+test('constructor and interface rules reject code placed in unrelated methods', async () => {
+  const { parse } = await import('java-parser')
+  const constructor = codePracticeLibrary['methods-constructor']
+  const missingInitialization = constructor.solution.replace('    this.name = name;', '')
+    .replace('  String label()', '  void other(String name) { this.name = name; }\n  String label()')
+  assert.doesNotThrow(() => parse(missingInitialization))
+  assert.equal(evaluateCodeRequirements(missingInitialization, constructor).staticSuccess, false)
+
+  const interfaceChallenge = codePracticeLibrary.interface
+  const misplacedPay = interfaceChallenge.solution.replace(
+    '    return amount > 0;', '    return false;',
+  ) + '\nclass Other { boolean valid(double amount) { return amount > 0; } }'
+  assert.doesNotThrow(() => parse(misplacedPay))
+  assert.equal(evaluateCodeRequirements(misplacedPay, interfaceChallenge).staticSuccess, false)
+})
+
 test('requirements with exact Java string values still accept their real literals', () => {
   for (const id of ['methods-constructor', 'java-collections', 'java-hashmap', 'java-exceptions']) {
     const challenge = codePracticeLibrary[id]

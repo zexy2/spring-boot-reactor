@@ -32,6 +32,22 @@ class Demo {
       ['new ile phone nesnesi', /\bProduct\s+phone\s*=\s*new\s+Product\s*\(\s*\)\s*;/],
       ['phone field atamaları', /\bphone\.name\s*=\s*"[^"]+"\s*;[\s\S]*?\bphone\.price\s*=\s*\d+(?:\.\d+)?\s*;/],
     ],
+    scopeRules: [
+      {
+        label: 'name ve price, Product sınıfında',
+        path: [/\bclass\s+Product\s*\{/],
+        directMembersOnly: true,
+        patterns: [/\bString\s+name\s*;/, /\bdouble\s+price\s*;/],
+      },
+      {
+        label: 'Product oluşturma ve alan atamaları Demo.run() içinde',
+        path: [/\bclass\s+Demo\s*\{/, /\bvoid\s+run\s*\(\s*\)\s*\{/],
+        patterns: [
+          /\bProduct\s+phone\s*=\s*new\s+Product\s*\(\s*\)\s*;/,
+          /\bphone\.name\s*=\s*"[^"]+"\s*;[\s\S]*?\bphone\.price\s*=\s*\d+(?:\.\d+)?\s*;/,
+        ],
+      },
+    ],
     hint: '`class Product` bir tiptir. `new Product()` nesne üretir. `phone.name` ise nesnenin alanına erişir.',
     expectedBehavior: 'run() içinde yeni Product nesnesi oluşur; iki field bu nesneye atanır.',
     reviewQuestion: 'İkinci kez new Product() çağırırsan aynı nesne mi kullanılır?',
@@ -64,6 +80,18 @@ class Demo {
       ['String dönen label()', /\bString\s+label\s*\(\s*\)\s*\{/],
       ['Etiket return ifadesi', /\breturn\s+"Ürün: "\s*\+\s*(?:this\.)?name\s*;/],
     ],
+    scopeRules: [
+      {
+        label: 'name ataması Product constructor içinde',
+        path: [/\bclass\s+Product\s*\{/, /\bProduct\s*\(\s*String\s+name\s*\)\s*\{/],
+        patterns: [/\bthis\.name\s*=\s*name\s*;/],
+      },
+      {
+        label: 'Etiket sonucu Product.label() içinde döner',
+        path: [/\bclass\s+Product\s*\{/, /\bString\s+label\s*\(\s*\)\s*\{/],
+        patterns: [/\breturn\s+"Ürün: "\s*\+\s*(?:this\.)?name\s*;/],
+      },
+    ],
     hint: 'Constructor’ın dönüş tipi olmaz; adı class ile aynıdır. `this.name`, field’ı ifade eder.',
     expectedBehavior: 'new Product("Kalem").label() sonucu "Ürün: Kalem" olmalı.',
     reviewQuestion: '`this.name = name` satırında iki `name` neden aynı şeyi ifade etmiyor?',
@@ -94,6 +122,16 @@ class CardPaymentService implements PaymentService {
       ['Interface implementasyonu', /\bclass\s+CardPaymentService\s+implements\s+PaymentService\s*\{/],
       ['public pay method’u', /\bpublic\s+boolean\s+pay\s*\(\s*double\s+amount\s*\)\s*\{/],
       ['Pozitif tutar koşulu', /\breturn\s+amount\s*>\s*0\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Pozitif tutar kontrolü CardPaymentService.pay() içinde',
+        path: [
+          /\bclass\s+CardPaymentService\s+implements\s+PaymentService\s*\{/,
+          /\bpublic\s+boolean\s+pay\s*\(\s*double\s+amount\s*\)\s*\{/,
+        ],
+        patterns: [/\breturn\s+amount\s*>\s*0\s*;/],
+      },
     ],
     hint: 'Interface gövdesi davranış imzasını taşır; implementation içindeki method `public` olmalıdır.',
     expectedBehavior: 'pay(15) true, pay(0) false döner.',
@@ -543,6 +581,43 @@ function matchesExecutablePattern(pattern, code, unquotedCode, maskedLiterals, l
   return false
 }
 
+// Scopes use lexical braces, with comments and string/character literals masked.
+// This checks placement of required code; Java compilation/type checking is separate.
+function extractJavaScope(source, path) {
+  let current = source
+  for (const declaration of path) {
+    const masked = splitCodeComments(current).unquotedCode
+    const match = new RegExp(declaration.source, declaration.flags.replace(/[gy]/g, '')).exec(masked)
+    if (!match || !match[0].endsWith('{')) return null
+    const opening = match.index + match[0].length - 1
+    let depth = 1
+    let closing = opening + 1
+    while (closing < masked.length && depth > 0) {
+      if (masked[closing] === '{') depth += 1
+      if (masked[closing] === '}') depth -= 1
+      closing += 1
+    }
+    if (depth !== 0) return null
+    current = current.slice(opening + 1, closing - 1)
+  }
+  return current
+}
+
+// A class field must be declared directly on that class; fields in inner
+// classes or method bodies cannot fulfill its field requirements.
+function maskNestedScopes(source) {
+  const masked = splitCodeComments(source).unquotedCode
+  const chars = [...source]
+  let depth = 0
+  for (let index = 0; index < masked.length; index += 1) {
+    const char = masked[index]
+    if (char === '{') depth += 1
+    if (depth > 0 && source[index] !== '\n') chars[index] = ' '
+    if (char === '}') depth -= 1
+  }
+  return chars.join('')
+}
+
 export function evaluateCodeRequirements(answer, challenge) {
   if (!challenge) return { checks: [], generatedMatch: false, staticSuccess: false }
 
@@ -570,6 +645,15 @@ export function evaluateCodeRequirements(answer, challenge) {
       ? matchesExecutablePattern(needle, withoutComments, unquotedCode, maskedLiterals, literals)
       : normalized.includes(normalizeCodeAnswer(needle)),
   }))
+  for (const rule of challenge.scopeRules ?? []) {
+    const scoped = extractJavaScope(answer, rule.path)
+    const parts = scoped == null ? null : splitCodeComments(rule.directMembersOnly ? maskNestedScopes(scoped) : scoped)
+    checks.push({
+      label: rule.label,
+      ok: parts !== null && rule.patterns.every((pattern) =>
+        matchesExecutablePattern(pattern, parts.code, parts.unquotedCode, parts.maskedLiterals, parts.literals)),
+    })
+  }
   if (challenge.editableStarter) {
     checks.push({ label: 'TODO satırları tamamlandı', ok: !/\bTODO\b/i.test(unquotedCode + comments) })
   }
