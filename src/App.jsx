@@ -17,6 +17,7 @@ import { conceptAliases, escapeRegex, getConceptDetail, getLessonTerms, getPrere
 import { buildAdaptiveMasteryPlan, insertSpacedRetry } from './learning/adaptiveMastery'
 import { validatedCompletedLessonIds } from './learning/progressIntegrity'
 import { restoreProgressBackup } from './learning/progressTransfer'
+import { isLessonShortcut, lessonIdFromUrl, lessonUrl, shouldHandleLessonLinkClick } from './learning/lessonNavigation'
 import {
   getGuidedActiveRecall,
   getGuidedLearningGoal,
@@ -2979,6 +2980,7 @@ function Lesson({ lesson, completed, onComplete, onNext, nextLesson, index, tota
 }
 
 const PROGRESS_KEY = 'spring-reactor-progress-v3'
+const LESSON_IDS = lessons.map((lesson) => lesson.id)
 
 function loadProgress() {
   try {
@@ -3000,11 +3002,16 @@ function App() {
   const [completed, setCompleted] = useState(initialState.completed)
   const [learning, setLearning] = useState(initialState.learning)
   const latestProgress = useRef(initialState)
-  const [activeId, setActiveId] = useState(() => {
+  const initialDeepLink = useRef(Boolean(lessonIdFromUrl(window.location.href, LESSON_IDS)))
+  const defaultLessonId = useRef(null)
+  if (!defaultLessonId.current) {
     const done = new Set(initialState.completed)
-    return lessons.find((lesson) => !done.has(lesson.id))?.id ?? lessons[lessons.length - 1].id
-  })
+    defaultLessonId.current = lessons.find((lesson) => !done.has(lesson.id))?.id ?? lessons[lessons.length - 1].id
+  }
+  const [activeId, setActiveId] = useState(() => lessonIdFromUrl(window.location.href, LESSON_IDS) ?? defaultLessonId.current)
   const [focus, setFocus] = useState(false)
+  const [copyStatus, setCopyStatus] = useState('')
+  const [storageWarning, setStorageWarning] = useState(false)
   const [roadmapOpen, setRoadmapOpen] = useState(false)
   const [roadmapQuery, setRoadmapQuery] = useState('')
   const [roadmapFilter, setRoadmapFilter] = useState('all')
@@ -3059,11 +3066,51 @@ function App() {
   const activeStatus = learningStatus(learning, activeId, completedSet.has(activeId))
   const activeHasCodeWorkout = useMemo(() => Boolean(buildCodePractice(activeLesson)), [activeLesson])
 
-  useEffect(() => localStorage.setItem(PROGRESS_KEY, JSON.stringify(completed)), [completed])
-  useEffect(() => localStorage.setItem(LEARNING_KEY, JSON.stringify(learning)), [learning])
+  useEffect(() => {
+    try {
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(completed))
+      localStorage.setItem(LEARNING_KEY, JSON.stringify(learning))
+      setStorageWarning(false)
+    } catch {
+      // QuotaExceededError and SecurityError must not crash the lesson UI.
+      setStorageWarning(true)
+    }
+  }, [completed, learning])
   useLayoutEffect(() => {
     latestProgress.current = { completed, learning }
   }, [completed, learning])
+
+  const navigateToLesson = useCallback((lessonId) => {
+    if (!LESSON_IDS.includes(lessonId)) return
+    if (lessonId !== activeId) {
+      const nextUrl = lessonUrl(window.location.href, lessonId)
+      window.history.pushState(window.history.state, '', nextUrl)
+      setActiveId(lessonId)
+    } else {
+      // Clicking the selected lesson should still reveal its content.
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      learningAreaRef.current?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' })
+    }
+    setCopyStatus('')
+  }, [activeId])
+
+  useEffect(() => {
+    const onBackOrForward = () => {
+      setCopyStatus('')
+      setActiveId(lessonIdFromUrl(window.location.href, LESSON_IDS) ?? defaultLessonId.current)
+    }
+    window.addEventListener('popstate', onBackOrForward)
+    return () => window.removeEventListener('popstate', onBackOrForward)
+  }, [])
+
+  const copyLessonLink = async () => {
+    try {
+      await navigator.clipboard.writeText(lessonUrl(window.location.href, activeId))
+      setCopyStatus('Ders bağlantısı kopyalandı.')
+    } catch {
+      setCopyStatus('Kopyalama engellendi. Ders bağlantısını aşağıdan açıp adres çubuğundan kopyalayabilirsin.')
+    }
+  }
 
   const restoreBackup = (incoming, options) => {
     const restored = restoreProgressBackup(latestProgress.current, incoming, options)
@@ -3074,22 +3121,29 @@ function App() {
   }
 
   useEffect(() => {
-    if (previousActiveId.current !== activeId) {
-      window.requestAnimationFrame(() => learningAreaRef.current?.focus({ preventScroll: true }))
+    const changed = previousActiveId.current !== activeId
+    document.title = `${activeLesson.title} · Java Backend Öğrenme Atölyesi`
+    if (changed || initialDeepLink.current) {
+      window.requestAnimationFrame(() => {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        learningAreaRef.current?.scrollIntoView({ block: 'start', behavior: initialDeepLink.current || reduceMotion ? 'auto' : 'smooth' })
+        if (changed) learningAreaRef.current?.focus({ preventScroll: true })
+        initialDeepLink.current = false
+      })
       previousActiveId.current = activeId
     }
-  }, [activeId])
+  }, [activeId, activeLesson.title])
 
   useEffect(() => {
     const handler = (event) => {
-      if (event.target.matches('input, textarea, button')) return
+      if (!isLessonShortcut(event)) return
       const index = lessons.findIndex((lesson) => lesson.id === activeId)
-      if (event.key.toLowerCase() === 'j') setActiveId(lessons[Math.min(index + 1, lessons.length - 1)].id)
-      if (event.key.toLowerCase() === 'k') setActiveId(lessons[Math.max(index - 1, 0)].id)
+      if (event.key.toLowerCase() === 'j') navigateToLesson(lessons[Math.min(index + 1, lessons.length - 1)].id)
+      if (event.key.toLowerCase() === 'k') navigateToLesson(lessons[Math.max(index - 1, 0)].id)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [activeId, completedSet])
+  }, [activeId, navigateToLesson])
 
   const recordQuizAnswer = (lessonId, conceptId, correct) => {
     setLearning((state) => {
@@ -3193,8 +3247,7 @@ function App() {
   }
   const nextLesson = () => {
     const index = lessons.findIndex((lesson) => lesson.id === activeId)
-    setActiveId(lessons[Math.min(index + 1, lessons.length - 1)].id)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigateToLesson(lessons[Math.min(index + 1, lessons.length - 1)].id)
   }
 
   const openDailyPlanItem = (item) => {
@@ -3202,8 +3255,7 @@ function App() {
       document.getElementById('review-deck')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    setActiveId(item.lesson.id)
-    window.requestAnimationFrame(() => document.getElementById('learning-area')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    navigateToLesson(item.lesson.id)
   }
 
   const closeReadiness = useCallback(() => {
@@ -3220,7 +3272,7 @@ function App() {
     <main className={focus ? 'app focus-mode' : 'app'}>
       <a className="skip-link" href="#learning-area">Aktif derse geç</a>
       <header className="topbar">
-        <button className="brand" onClick={() => setActiveId(lessons[0].id)} aria-label="Ana sayfa">
+        <button className="brand" onClick={() => navigateToLesson(lessons[0].id)} aria-label="İlk derse git">
           <span className="brand-mark">JB</span>
           <span><strong>JAVA BACKEND</strong><small>ÖĞRENME ATÖLYESİ / {lessons.length} DERS</small></span>
         </button>
@@ -3234,6 +3286,7 @@ function App() {
           <button className="focus-toggle" onClick={() => setFocus((v) => !v)}>{focus ? 'Haritayı aç' : 'Odak modu'}</button>
         </div>
       </header>
+      {storageWarning && <div className="storage-warning" role="alert">İlerleme bu cihazda kaydedilemiyor. Tarayıcı depolama ayarlarını kontrol et; sayfayı yenilersen son çalışmaların kaybolabilir. JSON yedeğini indir.</div>}
       {readinessOpen && <div id="readiness-panel"><ReadinessPanel readiness={readiness} onClose={closeReadiness} /></div>}
 
       <div className="shell">
@@ -3274,13 +3327,15 @@ function App() {
                   const lessonIndex = lessons.findIndex((item) => item.id === lesson.id)
                   const status = learningStatus(learning, lesson.id, completedSet.has(lesson.id))
                   return (
-                    <button
+                    <a
                       key={lesson.id}
-                      onClick={() => {
-                        setActiveId(lesson.id)
+                      href={lessonUrl(window.location.href, lesson.id)}
+                      onClick={(event) => {
+                        if (!shouldHandleLessonLinkClick(event)) return
+                        event.preventDefault()
+                        navigateToLesson(lesson.id)
                         if (window.matchMedia('(max-width: 640px)').matches) {
                           setRoadmapOpen(false)
-                          window.requestAnimationFrame(() => learningAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
                         }
                       }}
                       onMouseEnter={() => prefetchLessonRuntime(lesson)}
@@ -3290,7 +3345,7 @@ function App() {
                     >
                       <span className={`status-dot ${status.key}`} />
                       <span><strong>{lesson.title}</strong><small>{lessonIndex + 1}. ders · {lesson.minutes} dk · {lesson.xp} XP · {status.label.toLocaleLowerCase('tr-TR')}</small></span>
-                    </button>
+                    </a>
                   )
                 })}
               </section>
@@ -3306,7 +3361,11 @@ function App() {
             <RoleInterviewPanel />
           </div>
           {reviewDueCount > 0 && <RecallDeck completed={completedSet} activeId={activeId} learning={learning} onReview={recordReview} />}
-          <div ref={learningAreaRef} className="content-rule" id="learning-area" tabIndex={-1} aria-label={`Aktif ders: ${activeLesson.title}`}><span>AKTİF ÖĞRENME ALANI</span><i /></div>
+          <div ref={learningAreaRef} className="content-rule" id="learning-area" tabIndex={-1} aria-label={`Aktif ders: ${activeLesson.title}`}>
+            <span>AKTİF ÖĞRENME ALANI</span><i />
+            <button className="lesson-share" type="button" onClick={copyLessonLink} title={`${activeLesson.title} dersinin bağlantısını kopyala`}>Bağlantıyı kopyala ↗</button>
+          </div>
+          {copyStatus && <p className="lesson-share-status" role="status" aria-live="polite">{copyStatus} {copyStatus.startsWith('Kopyalama') && <a href={lessonUrl(window.location.href, activeId)} target="_blank" rel="noopener noreferrer">Ders bağlantısını aç ↗</a>}</p>}
           <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
           {reviewDueCount === 0 && <RecallDeck completed={completedSet} activeId={activeId} learning={learning} onReview={recordReview} />}
           <footer>

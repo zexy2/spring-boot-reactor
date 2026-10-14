@@ -40,7 +40,7 @@ Gerçek, yayındaki uygulamadan alınmış ekran görüntüleri:
 
 | Alan | Uygulamadaki deneyim |
 | --- | --- |
-| **Yol haritası** | 14 aşamadaki 102 dersi keşfet; konu ara, filtrele ve kaldığın yerden devam et. |
+| **Yol haritası** | 14 aşamadaki 102 dersi keşfet; konu ara, filtrele ve kaldığın yerden devam et. Ders bağlantısını paylaş, tarayıcıda geri/ileri git. |
 | **Yönlendirmeli öğrenme** | Kavramı öğren → uygula → hatırla/test et akışıyla ilerle. |
 | **Etkileşimli pratik** | Kod alıştırmaları, hata ayıklama görevleri ve konuya özel etkileşimli simülasyonlar yap. |
 | **Sistem düşüncesi** | DDD, API Gateway, servisler arası iletişim, dayanıklılık, Docker, Kubernetes ve CI/CD gibi kavramları senaryolarla incele. |
@@ -90,6 +90,8 @@ npm run dev
 ```
 
 Terminalin gösterdiği yerel adrese (genellikle `http://localhost:5173`) git. Canlı sürümü denemek için kurulum yapmana gerek yok: **[Uygulamayı tarayıcıda aç](https://zexy2.github.io/spring-boot-reactor/)**.
+
+**Kısayollar ve paylaşım:** Ders dışındaki alanlarda `j` sonraki, `k` önceki derse geçer. Ders haritasındaki bağlantıları yeni sekmede açabilirsin. Her dersin **Bağlantıyı kopyala** düğmesi, `?lesson=...` parametreli paylaşılabilir URL oluşturur. Bağlantıyı açan kişi doğrudan o derse yönlenir; kişisel ilerleme verileri paylaşılmaz.
 
 | Komut | İşlevi |
 | --- | --- |

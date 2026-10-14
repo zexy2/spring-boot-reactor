@@ -119,8 +119,9 @@ body::before {
 .phase-head strong { color: var(--muted); font-size: 11px; font-weight: 600; }
 .phase-head .scope-badge { color: var(--signal); border: 1px solid rgba(255,180,91,.35); padding: 2px 5px; font: 600 7px 'IBM Plex Mono', monospace; letter-spacing: .08em; }
 .phase-head em { margin-left: auto; color: #58708a; font: 500 9px 'IBM Plex Mono', monospace; font-style: normal; }
-.lesson-link { width: 100%; display: grid; grid-template-columns: 14px 1fr; gap: 7px; padding: 10px; border: 0; border-left: 2px solid transparent; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.lesson-link { width: 100%; display: grid; grid-template-columns: 14px minmax(0,1fr); gap: 7px; padding: 10px; border: 0; border-left: 2px solid transparent; background: transparent; color: var(--text); text-align: left; text-decoration: none; cursor: pointer; }
 .lesson-link:hover { background: rgba(131,183,255,.05); }
+.lesson-link:focus-visible { outline: 2px solid var(--data); outline-offset: -2px; }
 .lesson-link.active { background: rgba(131,183,255,.09); border-left-color: var(--blue); }
 .lesson-link.locked { opacity: .42; cursor: not-allowed; }
 .lesson-link.locked:hover { background: transparent; }
@@ -971,6 +972,12 @@ body::before {
 .content-rule { scroll-margin-top: 96px; }
 .content-rule span { color: var(--muted); font: 500 9px 'IBM Plex Mono', monospace; letter-spacing: .13em; }
 .content-rule i { flex: 1; height: 1px; background: var(--line); }
+.lesson-share { flex-shrink: 0; border: 1px solid var(--line); background: transparent; color: var(--data); padding: 8px 10px; cursor: pointer; font: 500 10px 'IBM Plex Mono', monospace; }
+.lesson-share:hover, .lesson-share:focus-visible { border-color: var(--data); }
+.lesson-share-status { color: var(--data); font-size: 12px; margin: -12px 0 20px; }
+.lesson-share-status a { color: var(--blue); }
+.content-rule span, .content-rule button { overflow-wrap: anywhere; }
+.storage-warning { padding: 12px 24px; border-bottom: 1px solid var(--signal); background: #302212; color: #ffe0ac; font-size: 12px; line-height: 1.5; }
 .lesson { max-width: 960px; }
 .lesson-hero {
   position: relative;
@@ -2420,6 +2427,9 @@ footer strong { color: var(--signal); }
   .learning-phase-nav button > strong { font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; }
   .guided-phase { scroll-margin-top: 198px; }
   .content-rule { scroll-margin-top: 122px; }
+  .content-rule { flex-wrap: wrap; gap: 10px; }
+  .content-rule i { min-width: 15px; }
+  .lesson-share { min-height: 44px; margin-left: auto; }
   .section-label { flex-wrap: wrap; gap: 8px 12px; line-height: 1.5; }
 
   .code-workout { padding: 14px; }
