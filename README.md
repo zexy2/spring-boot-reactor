@@ -45,7 +45,7 @@ Gerçek, yayındaki uygulamadan alınmış ekran görüntüleri:
 | **Etkileşimli pratik** | Kod alıştırmaları, hata ayıklama görevleri ve konuya özel etkileşimli simülasyonlar yap. |
 | **Sistem düşüncesi** | DDD, API Gateway, servisler arası iletişim, dayanıklılık, Docker, Kubernetes ve CI/CD gibi kavramları senaryolarla incele. |
 | **Mülakat çalışması** | Karma mülakat turları ve iş ortamından uyarlanmış teknik senaryolarla kendini sına. |
-| **Öğrenme takibi** | Tamamlanan dersleri, tekrar gereksinimini ve ilerlemeni izle; çalışmanı JSON olarak yedekle. |
+| **Öğrenme takibi** | Tamamlanan dersleri, tekrar gereksinimini ve ilerlemeni izle; yarım kalan kod taslaklarını otomatik kaydet ve çalışmanı JSON olarak yedekle. |
 
 ### Bir çalışma oturumu nasıl ilerler?
 

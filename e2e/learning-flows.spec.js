@@ -1,7 +1,23 @@
 import { expect, test } from '@playwright/test'
+import { lessons } from '../src/data/curriculum.js'
 
 const storageKey = 'spring-reactor-snapshot-v1'
 const lessonId = 'spring-vs-boot'
+const practiceLesson = lessons.find((lesson) => lesson.id === 'java-class')
+
+function checkpointAnswer(question) {
+  if (question === practiceLesson.question) return practiceLesson.options[practiceLesson.answer]
+  const codeFragment = question.match(/^Kod\/model okuma: `(.+?)`/u)?.[1]
+  if (codeFragment) return practiceLesson.codeNotes.find(([fragment]) => fragment === codeFragment)?.[1]
+  const concept = question.match(/^Kavram ayrımı: `(.+?)`/u)?.[1]
+  if (concept) return practiceLesson.terms.find(([term]) => term === concept)?.[1]
+  throw new Error(`Unknown checkpoint question: ${question}`)
+}
+
+async function openLearningPhase(page, phase) {
+  await page.locator('.learning-phase-nav button').nth(phase).click()
+  await expect(page.locator('.guided-phase').nth(phase)).toBeVisible()
+}
 
 async function openBackup(page) {
   const mobileToggle = page.getByRole('button', { name: /Konu haritası/ })
@@ -37,6 +53,94 @@ test('opening a lesson link directly and navigating back works', async ({ page }
   await expect(page.getByRole('main')).toContainText('Spring Boot')
   await page.goBack()
   await expect(page).toHaveURL(/spring-boot-reactor\/$/)
+})
+
+test('a real Java lesson retains code work, spaced retry and mastery after reload', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await expect(page).toHaveTitle(/Class, field ve object/)
+  await openLearningPhase(page, 1)
+
+  const codeWorkout = page.locator('.code-workout')
+  await codeWorkout.getByRole('textbox', { name: /kod editörü/ }).fill(`class Product {
+  String name;
+  double price;
+}
+
+class Demo {
+  void run() {
+    Product phone = new Product();
+    phone.name = "Telefon";
+    phone.price = 1299.0;
+  }
+}`)
+  await codeWorkout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(codeWorkout).toContainText('✓ TAMAMLANDI')
+  await expect.poll(async () => (await storedProgress(page))?.learning?.[practiceLesson.id]?.codePassed).toBe(true)
+  expect((await storedProgress(page)).completed).not.toContain(practiceLesson.id)
+
+  await openLearningPhase(page, 2)
+  const quiz = page.locator('.quiz-card')
+  await expect(quiz.locator('h3')).toHaveText(practiceLesson.question)
+  const correctText = checkpointAnswer(await quiz.locator('h3').innerText())
+  const wrong = quiz.locator('.quiz-options button').filter({ hasNotText: correctText }).first()
+  await wrong.click()
+  await expect(quiz.locator('.quiz-feedback')).toContainText('Neden yanlış?')
+  await expect.poll(async () => (await storedProgress(page))?.learning?.[practiceLesson.id]?.masteryCheckpoint?.retryAttempts?.['java-class-main']).toBe(1)
+  expect((await storedProgress(page)).completed).not.toContain(practiceLesson.id)
+
+  await page.reload()
+  await openLearningPhase(page, 2)
+  await expect(quiz.locator('.retry-badge', { hasText: 'TEKRAR' })).toBeVisible()
+
+  for (let index = 0; index < 3; index += 1) {
+    const question = await quiz.locator('h3').innerText()
+    const answer = question.startsWith('Kod/model okuma:') || question.startsWith('Kavram ayrımı:') || question === practiceLesson.question
+      ? checkpointAnswer(question)
+      : null
+    // A retry reverses the wording; its correct concept remains visible in the lesson material.
+    const retryAnswer = question.startsWith('“')
+      ? practiceLesson.terms.find(([, meaning]) => question.includes(meaning))?.[0]
+        ?? practiceLesson.codeNotes.find(([, explanation]) => question.includes(explanation))?.[0]
+      : question.match(/^`(.+?)` bu derste ne anlatıyor\?/u)
+        ? practiceLesson.codeNotes.find(([fragment]) => question.includes(`\`${fragment}\``))?.[1]
+      : null
+    const expected = answer ?? retryAnswer
+    expect(expected, `Missing answer fixture for ${question}`).toBeTruthy()
+    await quiz.locator('.quiz-options button').filter({ hasText: expected }).click()
+    await expect(quiz.locator('.quiz-feedback')).toContainText('Doğru.')
+    if (index < 2) await quiz.getByRole('button', { name: 'Sonraki soru →' }).click()
+  }
+
+  await expect(quiz.locator('.mastery-result')).toContainText('Ders tamamlandı')
+  await expect.poll(async () => (await storedProgress(page))?.completed?.includes(practiceLesson.id)).toBe(true)
+  const progress = await storedProgress(page)
+  expect(progress.learning[practiceLesson.id].masteryCheckpoint.masteredConceptIds).toHaveLength(3)
+  expect(progress.learning[practiceLesson.id].completionEvidenceVersion).toBe(2)
+  expect(progress.learning[practiceLesson.id].masteredAt).toBeGreaterThan(0)
+
+  await page.reload()
+  await openLearningPhase(page, 2)
+  await expect(quiz.locator('.mastery-result')).toContainText('Ders tamamlandı')
+  await expect(page.locator('.lesson-link.active')).toContainText('tamamlandı')
+  expect((await storedProgress(page)).completed).toContain(practiceLesson.id)
+})
+
+test('unfinished Java code draft autosaves and returns after reload', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  const draft = 'class Product {\n  String name;\n  // Henüz bitmedi\n}'
+  await editor.fill(draft)
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(draft)
+  const saved = (await storedProgress(page)).learning['java-class']
+  expect(saved.codeDraftUpdatedAt).toBeGreaterThan(0)
+  expect(saved.codePassed).not.toBe(true)
+
+  await page.reload()
+  await openLearningPhase(page, 1)
+  await expect(editor).toHaveValue(draft)
+  await expect(editor).toHaveAttribute('maxlength', '20000')
 })
 
 test('JSON backup can be downloaded, imported and retained after refresh', async ({ page }) => {

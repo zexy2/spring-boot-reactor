@@ -2652,7 +2652,7 @@ const guidedLessonPhases = [
   { id: 'recall', label: 'HATIRLA / TEST ET', note: 'Recall + checkpoint' },
 ]
 
-function GuidedLearningLesson({ lesson, completed, status, learningRecordData, codePassed, onComplete, onQuizAnswer, onCodeComplete, onDebugAttempt, onActiveRecall, onInterviewAttempt, onNext, nextLesson, index, total }) {
+function GuidedLearningLesson({ lesson, completed, status, learningRecordData, codePassed, onComplete, onQuizAnswer, onCodeComplete, onCodeDraftChange, onDebugAttempt, onActiveRecall, onInterviewAttempt, onNext, nextLesson, index, total }) {
   const prerequisites = useMemo(() => getPrerequisites(lesson), [lesson])
   const lessonTerms = useMemo(() => getLessonTerms(lesson), [lesson])
   const hasCodeWorkout = useMemo(() => Boolean(buildCodePractice(lesson)), [lesson])
@@ -2743,7 +2743,7 @@ function GuidedLearningLesson({ lesson, completed, status, learningRecordData, c
           <div className="guided-lab-divider"><span>ŞİMDİ SEN DENE</span><p>Önce kontrollü deney, sonra serbestçe kurcala.</p></div>
           <LessonLab lesson={lesson} />
           <MemoryGame lesson={lesson} />
-          <CodeWorkout lesson={lesson} passed={codePassed} onComplete={onCodeComplete} />
+          <CodeWorkout lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
           <DebugWorkout lesson={lesson} record={learningRecordData} onAttempt={onDebugAttempt} />
           <div className="phase-actions"><button type="button" className="reveal" onClick={() => selectPhase('understand')}>← Anla</button><button type="button" className="complete-button" onClick={() => selectPhase('recall')}>Hatırla / test et →</button></div>
         </div>
@@ -3182,6 +3182,14 @@ function App() {
     })
   }
 
+  const recordCodeDraft = useCallback((lessonId, draft) => {
+    setLearning((state) => {
+      const previous = state[lessonId] ?? {}
+      if (previous.codeDraft === draft) return state
+      return { ...state, [lessonId]: { ...previous, codeDraft: draft, codeDraftUpdatedAt: Date.now() } }
+    })
+  }, [])
+
   const saveDebugAttempt = (lessonId, attempt) => {
     setLearning((state) => ({
       ...state,
@@ -3403,7 +3411,7 @@ function App() {
             <button className="lesson-share" type="button" onClick={copyLessonLink} title={`${activeLesson.title} dersinin bağlantısını kopyala`}>Bağlantıyı kopyala ↗</button>
           </div>
           {copyStatus && <p className="lesson-share-status" role="status" aria-live="polite">{copyStatus} {copyStatus.startsWith('Kopyalama') && <a href={lessonUrl(window.location.href, activeId)} target="_blank" rel="noopener noreferrer">Ders bağlantısını aç ↗</a>}</p>}
-          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
+          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={recordCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
           {reviewDueCount === 0 && <RecallDeck completed={completedSet} activeId={activeId} learning={learning} onReview={recordReview} />}
           <footer>
             <strong>{activeLesson.points?.[0] ?? activeLesson.hook}</strong>

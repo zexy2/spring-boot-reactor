@@ -8,8 +8,9 @@ export const MAX_BACKUP_BYTES = 2 * 1024 * 1024
 const safeObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 const forbidden = new Set(['__proto__', 'constructor', 'prototype'])
 const counters = new Set(['attempts', 'correct', 'wrong', 'recallAttempts', 'recallFull', 'recallPartial', 'recallMissed', 'interviewAttempts', 'debugAttempts', 'debugCorrect', 'debugWrong', 'debugHints', 'intervalDays', 'completionEvidenceVersion'])
-const times = new Set(['nextReviewAt', 'lastReviewedAt', 'masteredAt', 'lastInterviewAt'])
+const times = new Set(['nextReviewAt', 'lastReviewedAt', 'masteredAt', 'lastInterviewAt', 'codeDraftUpdatedAt'])
 const flags = new Set(['codePassed', 'debugSolved'])
+export const MAX_CODE_DRAFT_LENGTH = 20000
 
 function entries(value) {
   if (!safeObject(value)) throw new Error('Yedek veri yapısı geçersiz.')
@@ -40,6 +41,9 @@ function record(value) {
     } else if (flags.has(key)) {
       if (typeof item !== 'boolean') throw new Error('Yedekte geçersiz mantıksal alan var.')
       result[key] = item
+    } else if (key === 'codeDraft') {
+      if (typeof item !== 'string' || item.length > MAX_CODE_DRAFT_LENGTH) throw new Error('Yedekte geçersiz kod taslağı var.')
+      result.codeDraft = item
     } else if (key === 'concepts') {
       result.concepts = {}
       for (const [id, value] of entries(item)) {
@@ -60,6 +64,10 @@ function record(value) {
       }
       result.masteryCheckpoint = { masteredConceptIds, retryAttempts }
     }
+  }
+  if (Object.hasOwn(result, 'codeDraft') !== Object.hasOwn(result, 'codeDraftUpdatedAt')
+    || (Object.hasOwn(result, 'codeDraft') && result.codeDraftUpdatedAt === 0)) {
+    throw new Error('Yedekte kod taslağının kayıt tarihi geçersiz.')
   }
   return result
 }
@@ -117,8 +125,16 @@ function combineRecord(previous, incoming) {
       for (const [id, count] of Object.entries(value.retryAttempts)) retryAttempts[id] = Math.max(retryAttempts[id] ?? 0, count)
       for (const id of masteredConceptIds) delete retryAttempts[id]
       result.masteryCheckpoint = { masteredConceptIds, retryAttempts }
-    } else if (flags.has(key)) result[key] = previous[key] === true || value === true
+    } else if (key === 'codeDraft' || key === 'codeDraftUpdatedAt') continue
+    else if (flags.has(key)) result[key] = previous[key] === true || value === true
     else result[key] = Math.max(previous[key] ?? 0, value)
+  }
+
+  // Drafts are text, not counters. Keep the newest edit as one timestamped pair.
+  const draftSource = (incoming.codeDraftUpdatedAt ?? 0) > (previous.codeDraftUpdatedAt ?? 0) ? incoming : previous
+  if (Object.hasOwn(draftSource, 'codeDraft')) {
+    result.codeDraft = draftSource.codeDraft
+    result.codeDraftUpdatedAt = draftSource.codeDraftUpdatedAt
   }
 
   // Review schedules belong to the latest review. Taking the maximum due date

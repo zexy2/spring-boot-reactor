@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { buildCodePractice, evaluateCodeRequirements, getSyntaxTemplates } from '../../learning/codePractice'
+import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 
 let javaParserPromise
 
@@ -20,18 +21,29 @@ export function prefetchCodeWorkoutRuntime(lesson) {
   return loadJavaParser().catch(() => null)
 }
 
-export default function CodeWorkout({ lesson, passed, onComplete }) {
+export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, onDraftChange }) {
   const challenge = useMemo(() => buildCodePractice(lesson), [lesson])
-  const [answer, setAnswer] = useState(challenge?.editableStarter ? challenge.starter : '')
+  const initialAnswer = () => typeof savedDraft === 'string' ? savedDraft : challenge?.editableStarter ? challenge.starter : ''
+  const [answer, setAnswer] = useState(initialAnswer)
   const [checked, setChecked] = useState(false)
   const [revealed, setRevealed] = useState(false)
   const [syntaxResult, setSyntaxResult] = useState(null)
   const verificationId = useRef(0)
   const gutterRef = useRef(null)
+  const pendingDraft = useRef(null)
+  const draftTimer = useRef(null)
+
+  useEffect(() => () => {
+    window.clearTimeout(draftTimer.current)
+    if (pendingDraft.current) {
+      onDraftChange?.(pendingDraft.current.lessonId, pendingDraft.current.value)
+      pendingDraft.current = null
+    }
+  }, [lesson.id, onDraftChange])
 
   useEffect(() => {
     verificationId.current += 1
-    setAnswer(challenge?.editableStarter ? challenge.starter : '')
+    setAnswer(initialAnswer())
     setChecked(false)
     setRevealed(false)
     setSyntaxResult(null)
@@ -51,6 +63,15 @@ export default function CodeWorkout({ lesson, passed, onComplete }) {
     setAnswer(nextAnswer)
     setChecked(false)
     setSyntaxResult(null)
+    if (nextAnswer.length <= MAX_CODE_DRAFT_LENGTH && onDraftChange) {
+      window.clearTimeout(draftTimer.current)
+      pendingDraft.current = { lessonId: lesson.id, value: nextAnswer }
+      draftTimer.current = window.setTimeout(() => {
+        const draft = pendingDraft.current
+        pendingDraft.current = null
+        if (draft) onDraftChange(draft.lessonId, draft.value)
+      }, 350)
+    }
   }
 
   const verify = async () => {
@@ -140,9 +161,9 @@ export default function CodeWorkout({ lesson, passed, onComplete }) {
         <div><small>SENİN KODUN</small>
           <div className="code-editor-shell">
             <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">{answer.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div>
-            <textarea aria-label={`${lesson.title} kod editörü`} wrap="off" value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder="Eksik kodu buraya yaz..." />
+            <textarea aria-label={`${lesson.title} kod editörü`} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder="Eksik kodu buraya yaz..." />
           </div>
-          <p className="code-scroll-help">Tab: 2 boşluk · Ctrl/Cmd+Enter: kontrol · Uzun satırlar yatay kaydırılır.</p>
+          <p className="code-scroll-help">Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
       </div>
       <div className="code-requirements">

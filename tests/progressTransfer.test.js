@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   BACKUP_TYPE,
   BACKUP_VERSION,
+  MAX_CODE_DRAFT_LENGTH,
   MAX_BACKUP_BYTES,
   createProgressBackup,
   parseProgressBackup,
@@ -93,6 +94,18 @@ test('review due date stays conservative when backups have no review ordering', 
   assert.equal(restoreProgressBackup(current, incoming, { lessonList }).learning.plain.nextReviewAt, 3000)
 })
 
+test('code drafts survive backup round trips and newest edit wins merges, including clearing a draft', () => {
+  const current = { completed: [], learning: { 'java-class': { codeDraft: 'class Old {}', codeDraftUpdatedAt: 300 } } }
+  const older = { completed: [], learning: { 'java-class': { codeDraft: 'class Older {}', codeDraftUpdatedAt: 200 } } }
+  const newer = { completed: [], learning: { 'java-class': { codeDraft: 'class Newer {}', codeDraftUpdatedAt: 400 } } }
+  const cleared = { completed: [], learning: { 'java-class': { codeDraft: '', codeDraftUpdatedAt: 500 } } }
+
+  assert.deepEqual(parseProgressBackup(JSON.stringify(createProgressBackup([], current.learning, lessonList)), lessonList).learning, current.learning)
+  assert.equal(restoreProgressBackup(current, older, { lessonList }).learning['java-class'].codeDraft, 'class Old {}')
+  assert.equal(restoreProgressBackup(current, newer, { lessonList }).learning['java-class'].codeDraft, 'class Newer {}')
+  assert.equal(restoreProgressBackup(newer, cleared, { lessonList }).learning['java-class'].codeDraft, '')
+})
+
 test('replace discards previous records and enforces code completion evidence', () => {
   const current = { completed: ['plain', 'java-class'], learning: { plain: { attempts: 9 }, 'java-class': { codePassed: true } } }
   const incoming = { completed: ['java-class'], learning: { 'java-class': { codePassed: false, attempts: 2 } } }
@@ -126,6 +139,9 @@ test('invalid numeric fields and dangerous nested object keys are rejected', () 
   assert.throws(() => parseProgressBackup(encoded({ learning: { plain: { codePassed: 'yes' } } }), lessonList), /mantıksal/)
   assert.throws(() => parseProgressBackup(encoded({ learning: { plain: { concepts: JSON.parse('{"__proto__":{"strength":100}}') } } }), lessonList), /güvenli olmayan/)
   assert.throws(() => parseProgressBackup(encoded({ learning: { plain: { masteryCheckpoint: { masteredConceptIds: ['__proto__'] } } } }), lessonList), /kimliği/)
+  assert.throws(() => parseProgressBackup(encoded({ learning: { 'java-class': { codeDraft: 'x'.repeat(MAX_CODE_DRAFT_LENGTH + 1), codeDraftUpdatedAt: 1 } } }), lessonList), /kod taslağı/)
+  assert.throws(() => parseProgressBackup(encoded({ learning: { 'java-class': { codeDraft: 'class Test {}' } } }), lessonList), /kayıt tarihi/)
+  assert.throws(() => parseProgressBackup(encoded({ learning: { 'java-class': { codeDraftUpdatedAt: 15 } } }), lessonList), /kayıt tarihi/)
 })
 
 test('unknown lesson ids are removed before applying the import', () => {
