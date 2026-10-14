@@ -12,19 +12,19 @@
     "test": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./tests/extension-loader.mjs\", pathToFileURL(\"./\"));' --test tests/*.test.js"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
     "java-parser": "^3.0.1",
-    "motion": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "typescript": "latest",
-    "vite": "latest"
+    "motion": "^13.5.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "overrides": {
     "lodash": "4.18.1",
     "lodash-es": "4.18.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.0"
+    "@playwright/test": "^1.64.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2"
   }
 }

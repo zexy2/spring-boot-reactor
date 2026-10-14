@@ -121,7 +121,7 @@ flowchart TD
 | `src/learning/` | Öğrenme durumu, alıştırma mantığı ve kavrama özel simülasyonlar. |
 | `src/Post05Playgrounds.jsx` | İleri konuların etkileşimli çalışma alanları. |
 | `tests/` | Öğrenme mantığı ve simülasyonları doğrulayan otomatik testler. |
-| `.github/workflows/deploy.yml` | `main` dalındaki değişikliklerin test edilmesi, derlenmesi ve GitHub Pages'e dağıtılması. |
+| `.github/workflows/deploy.yml` | PR'larda birim, masaüstü/mobil tarayıcı testleri ve üretim derlemesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
 
 **Teknoloji:** React, Vite, JavaScript, `java-parser`, Motion ve Node.js test çalıştırıcısı. GitHub Pages üzerinden statik olarak yayımlanır. Üretim derlemesinde Vite taban yolu `/spring-boot-reactor/` olarak ayarlanır.
 
