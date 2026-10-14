@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test'
 import { lessons } from '../src/data/curriculum.js'
 import { codePracticeLibrary } from '../src/learning/codePractice.js'
 
+// CodeMirror is contenteditable with an offscreen, virtualized document.
+const codeValue = (editor) => editor.evaluate((element) => element.closest('.cm-editor').__getCodeDraft())
+const expectCode = (editor, expected) => expect.poll(() => codeValue(editor)).toBe(expected)
+
 const storageKey = 'spring-reactor-snapshot-v1'
 const lessonId = 'spring-vs-boot'
 const practiceLesson = lessons.find((lesson) => lesson.id === 'java-class')
@@ -140,8 +144,8 @@ test('unfinished Java code draft autosaves and returns after reload', async ({ p
 
   await page.reload()
   await openLearningPhase(page, 1)
-  await expect(editor).toHaveValue(draft)
-  await expect(editor).toHaveAttribute('maxlength', '20000')
+  await expectCode(editor, draft)
+  await expect(editor).toHaveAttribute('data-maxlength', '20000')
 })
 
 test('Java requirements update only on submission and reset after editing', async ({ page }) => {
@@ -186,7 +190,7 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   await editor.fill('class Test {}')
   await editor.press('End')
   await editor.press('Tab')
-  await expect(editor).toHaveValue('class Test {}  ')
+  await expectCode(editor, 'class Test {}  ')
   await expect(editor).toBeFocused()
 
   await editor.press('Escape')
@@ -206,18 +210,18 @@ test('indentation keeps selected code and skips a line outside the selection', a
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const initial = 'class Test {\n  int a;\n  int b;\n}'
   await editor.fill(initial)
-  await editor.evaluate((element) => element.setSelectionRange(0, 'class Test {\n  int a;\n'.length))
+  await editor.evaluate((element) => element.closest('.cm-editor').__selectCodeRange(0, 'class Test {\n  int a;\n'.length))
   await editor.press('Tab')
 
   const expected = '  class Test {\n    int a;\n  int b;\n}'
-  await expect(editor).toHaveValue(expected)
+  await expectCode(editor, expected)
   await expect(editor).toBeFocused()
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(expected)
-  const selection = await editor.evaluate((element) => [element.selectionStart, element.selectionEnd])
+  const selection = await editor.evaluate((element) => element.closest('.cm-editor').__codeSelection())
   expect(selection).toEqual([0, '  class Test {\n    int a;\n'.length])
 
   await editor.press('ControlOrMeta+z')
-  await expect(editor).toHaveValue(initial)
+  await expectCode(editor, initial)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(initial)
 })
 
@@ -230,14 +234,14 @@ test('code editor Tab indentation can be undone and stays in sync with the saved
   await editor.fill(initial)
   await editor.press('End')
   await editor.press('Tab')
-  await expect(editor).toHaveValue(`${initial}  `)
+  await expectCode(editor, `${initial}  `)
 
   await editor.press('ControlOrMeta+z')
-  await expect(editor).toHaveValue(initial)
+  await expectCode(editor, initial)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(initial)
 
   await editor.press('ControlOrMeta+Shift+z')
-  await expect(editor).toHaveValue(`${initial}  `)
+  await expectCode(editor, `${initial}  `)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(`${initial}  `)
 })
 
@@ -246,21 +250,21 @@ test('code editor line numbers track added and removed lines without losing the 
   await openLearningPhase(page, 1)
 
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
-  const gutter = page.locator('.code-workout .code-editor-gutter')
+  const gutter = page.locator('.code-workout .cm-lineNumbers')
 
   await editor.fill('class A {}')
-  await expect(gutter.locator('span')).toHaveText(['1'])
+  await expect.poll(() => gutter.locator('.cm-gutterElement').allTextContents()).toContain('1')
   const multiline = 'class A {\n  int count;\n}\n'
   await editor.fill(multiline)
-  await expect(gutter.locator('span')).toHaveText(['1', '2', '3', '4'])
+  await expect.poll(() => gutter.locator('.cm-gutterElement').allTextContents()).toEqual(expect.arrayContaining(['1', '2', '3', '4']))
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(multiline)
 
   await editor.fill('class A {}')
-  await expect(gutter.locator('span')).toHaveText(['1'])
+  await expect.poll(() => gutter.locator('.cm-gutterElement').allTextContents()).toContain('1')
   await page.reload()
   await openLearningPhase(page, 1)
-  await expect(editor).toHaveValue('class A {}')
-  await expect(gutter.locator('span')).toHaveText(['1'])
+  await expectCode(editor, 'class A {}')
+  await expect.poll(() => gutter.locator('.cm-gutterElement').allTextContents()).toContain('1')
 })
 
 test('Java syntax and missing requirements are checked separately before recording progress', async ({ page }) => {
@@ -464,7 +468,7 @@ test('Java draft survives a reload immediately after typing', async ({ page }) =
   await page.reload()
   await openLearningPhase(page, 1)
 
-  await expect(editor).toHaveValue(draft)
+  await expectCode(editor, draft)
   expect((await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(draft)
 })
 
@@ -479,7 +483,7 @@ test('Java draft survives immediately leaving and reopening the lesson', async (
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
 
-  await expect(editor).toHaveValue(draft)
+  await expectCode(editor, draft)
 })
 
 test('JSON backup can be downloaded, imported and retained after refresh', async ({ page }) => {
@@ -514,7 +518,7 @@ test('restoring a newer JSON code draft updates an open editor before the next e
   imported.learning['java-class'].codeDraftUpdatedAt = Date.now() + 60_000
 
   await importBackup(page, backup, imported)
-  await expect(editor).toHaveValue(restoredDraft)
+  await expectCode(editor, restoredDraft)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(restoredDraft)
 
   const editedDraft = `${restoredDraft}\n// edited after restore`
@@ -522,14 +526,14 @@ test('restoring a newer JSON code draft updates an open editor before the next e
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(editedDraft)
   await page.reload()
   await openLearningPhase(page, 1)
-  await expect(editor).toHaveValue(editedDraft)
+  await expectCode(editor, editedDraft)
 })
 
 test('replacing a JSON backup without a draft clears the open editor', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
-  const starter = await editor.inputValue()
+  const starter = await codeValue(editor)
   await editor.fill('class Product { int unsavedStock; }')
   const backup = await openBackup(page)
   const imported = await storedProgress(page)
@@ -544,7 +548,7 @@ test('replacing a JSON backup without a draft clears the open editor', async ({ 
   })
 
   await expect(backup.getByRole('status')).toContainText('geri yüklendi')
-  await expect(editor).toHaveValue(starter)
+  await expectCode(editor, starter)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBeUndefined()
 })
 
@@ -609,7 +613,7 @@ test('a stale Java editor cannot overwrite newer progress from another tab', asy
   await page.reload()
   await openLearningPhase(page, 1)
   expect((await storedProgress(page)).learning[lessonId].attempts).toBe(13)
-  await expect(editor).not.toHaveValue('class Product { int stock; }')
+  await expect.poll(() => codeValue(editor)).not.toBe('class Product { int stock; }')
 })
 
 test('small mobile viewports avoid page-wide horizontal overflow', async ({ page }, testInfo) => {

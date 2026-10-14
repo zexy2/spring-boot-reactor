@@ -1,33 +1,10 @@
-import { memo, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { buildCodePractice, evaluateCodeRequirements, getSyntaxTemplates } from '../../learning/codePractice'
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 import { prefetchJavaSyntaxRuntime, validateJavaSyntax } from '../../learning/javaSyntaxRuntime'
 
-// Rebuild line numbers only when the line count changes, not on every keystroke.
-// Large pastes can contain thousands of newlines. Rendering a span per line
-// creates thousands of DOM nodes and makes the editor unresponsive.
-const MAX_GUTTER_ROW_ELEMENTS = 200
-
-const CodeLineNumbers = memo(function CodeLineNumbers({ count, gutterRef }) {
-  return (
-    <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">
-      {count <= MAX_GUTTER_ROW_ELEMENTS
-        ? Array.from({ length: count }, (_, index) => <span key={index}>{index + 1}</span>)
-        : <span style={{ display: 'block', height: 'auto', whiteSpace: 'pre' }}>
-            {Array.from({ length: count }, (_, index) => index + 1).join('\n')}
-          </span>}
-    </div>
-  )
-})
-
-function countCodeLines(code) {
-  let count = 1
-  for (let index = 0; index < code.length; index += 1) {
-    if (code.charCodeAt(index) === 10) count += 1
-  }
-  return count
-}
+const JavaCodeEditor = lazy(() => import('./JavaCodeEditor'))
 
 export function prefetchCodeWorkoutRuntime(lesson) {
   const challenge = buildCodePractice(lesson)
@@ -45,12 +22,10 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const [revealed, setRevealed] = useState(false)
   const [syntaxResult, setSyntaxResult] = useState(null)
   const verificationId = useRef(0)
-  const gutterRef = useRef(null)
   const actionsRef = useRef(null)
   const editorHelpId = useId()
   const uncheckedRequirements = useMemo(() => challenge ? evaluateCodeRequirements('', challenge) : null, [challenge])
   const syntaxTemplates = useMemo(() => challenge ? getSyntaxTemplates(challenge) : [], [challenge])
-  const codeLineCount = useMemo(() => countCodeLines(answer), [answer])
 
   useEffect(() => {
     verificationId.current += 1
@@ -125,46 +100,6 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     }
   }
 
-  const editKeyboard = (event) => {
-    if (event.key === 'Escape' && !event.isComposing) {
-      const nextAction = actionsRef.current?.querySelector('button:not(:disabled)')
-      if (nextAction) {
-        event.preventDefault()
-        nextAction.focus()
-      }
-    } else if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-      event.preventDefault()
-      void verify()
-    } else if (event.key === 'Tab' && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      event.preventDefault()
-      const editor = event.currentTarget
-      const start = editor.selectionStart
-      const end = editor.selectionEnd
-      if (start === end) {
-        if (answer.length + 2 > MAX_CODE_DRAFT_LENGTH) return
-        // Native editing preserves browser undo/redo history (Ctrl/Cmd+Z),
-        // whereas a React-only value replacement discards the Tab edit.
-        if (document.execCommand('insertText', false, '  ')) return
-        updateAnswer(`${answer.slice(0, start)}  ${answer.slice(end)}`)
-        window.requestAnimationFrame(() => editor.setSelectionRange(start + 2, start + 2))
-        return
-      }
-
-      // Indent selected lines without replacing (and losing) the selected code.
-      // A selection ending at the start of the next line excludes that line.
-      const lineStart = answer.lastIndexOf('\n', start - 1) + 1
-      const selected = answer.slice(lineStart, end)
-      const lines = selected.split('\n')
-      const lineCount = lines.length - (selected.endsWith('\n') ? 1 : 0)
-      const indented = lines.map((line, index) => index < lineCount ? `  ${line}` : line).join('\n')
-      if (answer.length + lineCount * 2 > MAX_CODE_DRAFT_LENGTH) return
-      editor.setSelectionRange(lineStart, end)
-      if (!document.execCommand('insertText', false, indented)) {
-        updateAnswer(`${answer.slice(0, lineStart)}${indented}${answer.slice(end)}`)
-      }
-      window.requestAnimationFrame(() => editor.setSelectionRange(lineStart, end + lineCount * 2))
-    }
-  }
 
   let feedbackTitle = success ? (isFragmentExercise ? 'Eksik parçayı doğru tamamladın.' : 'Gerekli kod parçalarını kurdun.') : 'Henüz eksik parça var.'
   let feedbackText = success
@@ -209,10 +144,9 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
           : <><small>STARTER</small><pre><code>{challenge.starter}</code></pre></>}
         </div>
         <div><small>{isFragmentExercise ? 'EKSİK İFADE' : 'SENİN KODUN'}</small>
-          <div className="code-editor-shell">
-            <CodeLineNumbers count={codeLineCount} gutterRef={gutterRef} />
-            <textarea aria-label={`${lesson.title} kod editörü`} aria-describedby={editorHelpId} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder={isFragmentExercise ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'} />
-          </div>
+          <Suspense fallback={<div className="code-editor-shell code-editor-loading" role="status">Java editörü yükleniyor…</div>}>
+            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={() => actionsRef.current?.querySelector("button:not(:disabled)")?.focus()} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
+          </Suspense>
           <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Ctrl/Cmd+Z: geri al · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
       </div>

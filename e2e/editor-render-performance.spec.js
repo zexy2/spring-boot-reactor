@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 
+const codeValue = (editor) => editor.evaluate((element) => element.closest('.cm-editor').__getCodeDraft())
+const expectCode = (editor, expected) => expect.poll(() => codeValue(editor)).toBe(expected)
+
 test('typing in Java code editor does not re-render the entire App for every keystroke', async ({ page }) => {
   await page.addInitScript(() => {
     window.__editorRenderMetrics = { rootCommits: 0, appRenders: 0 }
@@ -32,14 +35,14 @@ test('typing in Java code editor does not re-render the entire App for every key
 
   await page.goto('?lesson=java-class')
   await page.locator('.learning-phase-nav button').nth(1).click()
-  const editor = page.locator('.code-workout textarea')
+  const editor = page.locator('.code-workout .cm-content')
   await expect(editor).toBeVisible()
   await editor.fill('class Product {}')
   const before = await page.evaluate(() => ({ ...window.__editorRenderMetrics }))
   await editor.pressSequentially('abcdefghijklmnopqrstuvwx', { delay: 20 })
   const after = await page.evaluate(() => ({ ...window.__editorRenderMetrics }))
   console.log('EDITOR_RENDER_METRICS', JSON.stringify({ before, after, appRendersPer24Keys: after.appRenders - before.appRenders }))
-  await expect(editor).toHaveValue('class Product {}abcdefghijklmnopqrstuvwx')
+  await expectCode(editor, 'class Product {}abcdefghijklmnopqrstuvwx')
   expect(after.rootCommits).toBeGreaterThan(before.rootCommits)
   expect(after.appRenders - before.appRenders).toBeLessThan(5)
 
@@ -52,13 +55,13 @@ test('typing in Java code editor does not re-render the entire App for every key
   console.log('EDITOR_RENDER_SETTLED', JSON.stringify(settled))
   expect(settled.appRenders - after.appRenders).toBeGreaterThanOrEqual(1)
   expect(settled.appRenders - after.appRenders).toBeLessThanOrEqual(2)
-  await expect(editor).toHaveValue('class Product {}abcdefghijklmnopqrstuvwx')
+  await expectCode(editor, 'class Product {}abcdefghijklmnopqrstuvwx')
 })
 
 test('JSON export reads the latest Java draft even before the parent renders again', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await page.locator('.learning-phase-nav button').nth(1).click()
-  const editor = page.locator('.code-workout textarea')
+  const editor = page.locator('.code-workout .cm-content')
   const draft = 'class Product { int immediateBackup; }'
   await editor.fill(draft)
 

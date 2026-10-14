@@ -1141,37 +1141,17 @@ body::before {
 .code-workout-grid > div { min-width: 0; border: 1px solid var(--line); background: #07101d; }
 .code-workout-grid small { display: block; padding: 9px 12px; border-bottom: 1px solid var(--line); color: var(--blue); font: 600 9px 'IBM Plex Mono', monospace; letter-spacing: .1em; }
 .code-workout-grid pre { margin: 0; min-height: 230px; border: 0; background: transparent; }
-.code-workout-grid textarea { width: 100%; min-height: 230px; resize: vertical; border: 0; outline: 0; background: transparent; color: #d9e7f4; padding: 18px; font: 400 12px/1.65 'IBM Plex Mono', monospace; tab-size: 2; }
-.code-workout-grid textarea { white-space: pre; overflow-x: auto; overflow-wrap: normal; }
-/* Keep long drafts inside the editor. The gutter's intrinsic height must not
-   stretch the grid and textarea to thousands of screen pixels. */
-.code-workout-grid .code-editor-shell {
-  height: 360px;
-  min-height: 230px;
-  max-height: 75vh;
-  overflow: hidden;
-  resize: vertical;
-}
-.code-workout-grid .code-editor-shell > textarea {
-  height: 100%;
-  min-height: 0;
-  max-height: 100%;
-  resize: none;
-  overflow-y: auto;
-}
-.code-workout-grid .code-editor-shell > .code-editor-gutter {
-  height: 100%;
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-}
-.code-editor-shell { display: grid; grid-template-columns: 38px minmax(0, 1fr); min-width: 0; }
-.code-editor-gutter { overflow: hidden; padding: 18px 4px 18px 0; background: rgba(131,183,255,.035); color: #6482a0; text-align: right; user-select: none; font: 400 12px/1.65 'IBM Plex Mono', monospace; }
-.code-editor-gutter span { display: block; height: 1.65em; }
-.code-editor-shell textarea { min-width: 0; }
+/* Virtualized Java editor: only visible lines enter the DOM. */
+.code-workout-grid .code-editor-shell { height: 360px; min-height: 230px; max-height: 75vh; resize: vertical; overflow: hidden; display: block; min-width: 0; }
+.code-editor-shell .cm-editor { height: 100%; min-width: 0; background: #07101d; color: #d9e7f4; font: 400 12px/1.65 'IBM Plex Mono', monospace; }
+.code-editor-shell .cm-scroller { overflow: auto; font: inherit; }
+.code-editor-shell .cm-content { padding: 18px 8px; caret-color: var(--data); }
+.code-editor-shell .cm-line { padding: 0 6px; }
+.code-editor-shell .cm-gutters { border-right: 1px solid var(--line); background: #0b1929; color: #6482a0; }
+.code-editor-shell .cm-gutterElement { padding: 0 7px 0 5px; }
+.code-editor-shell .cm-editor.cm-focused { outline: 2px solid var(--blue); outline-offset: -2px; }
+.code-editor-shell .cm-placeholder { color: #536b83; }
 .code-scroll-help { display: block; margin: 0; padding: 0 14px 12px; color: #8fa8c0; font: 500 11px/1.5 'IBM Plex Mono', monospace; }
-.code-workout-grid textarea:focus-visible { box-shadow: inset 0 0 0 2px var(--blue); }
-.code-workout-grid textarea::placeholder { color: #536b83; }
 .code-workout-guide { min-height: 230px; display: grid; align-content: start; gap: 8px; padding: 18px; }
 .code-workout-guide strong { color: var(--blue); font: 700 10px 'IBM Plex Mono', monospace; letter-spacing: .07em; }
 .code-workout-guide p { margin: 0 0 12px; color: #c3d2e2; font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
@@ -2072,7 +2052,7 @@ footer strong { color: var(--signal); }
   .term-grid { grid-template-columns: 1fr; }
   .code-workout-grid { grid-template-columns: 1fr; }
   .code-workout { padding: 18px; }
-  .code-workout-grid pre, .code-workout-grid textarea { min-height: 190px; }
+  .code-workout-grid pre { min-height: 190px; }
   .prerequisite-list, .concept-inspector-grid { grid-template-columns: 1fr; }
   .concept-inspector-layer { inset: 70px 0 0; padding: 12px; align-items: center; }
   .concept-inspector { width: 100%; max-height: min(78vh, 620px); }
@@ -2467,9 +2447,8 @@ footer strong { color: var(--signal); }
   .code-workout-guide { min-height: 0; padding: 14px; }
   .code-workout-grid pre { min-height: 0; padding: 14px; font-size: 12px; }
   .code-workout-grid pre code { font-size: 12px; line-height: 1.6; white-space: pre; overflow-wrap: normal; word-break: normal; }
-  .code-workout-grid textarea { min-height: 230px; padding: 14px; font-size: 16px; line-height: 1.55; }
-  .code-editor-gutter { padding-top: 14px; padding-bottom: 14px; font-size: 16px; line-height: 1.55; }
-  .code-editor-gutter span { height: 1.55em; }
+  .code-editor-shell .cm-editor { font-size: 16px; line-height: 1.55; }
+  .code-editor-shell .cm-content { padding: 14px 6px; }
   .code-scroll-help { display: block; margin: 0; padding: 0 14px 12px; color: #8fa8c0; font: 500 11px/1.5 'IBM Plex Mono', monospace; }
   .code-solution-help { padding: 0; margin: 12px 0 -5px; }
   .code-solution { display: block; overflow-x: auto; overscroll-behavior-x: contain; max-width: 100%; padding: 14px; }
