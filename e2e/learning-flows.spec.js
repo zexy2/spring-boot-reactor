@@ -206,6 +206,10 @@ test('Java syntax and missing requirements are checked separately before recordi
   await expect(requirements).toContainText('× double price field’ı')
   expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
 
+  await editor.fill('class Product { String name; void run() { int x = ; } }')
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(feedback).toContainText(/\d+\. satır, \d+\. sütun civarında Java sözdizimi hatası/)
+
   await editor.fill('class Product { String name; }')
   await expect(feedback).toHaveCount(0)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()

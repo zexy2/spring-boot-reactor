@@ -15,8 +15,11 @@ self.onmessage = ({ data }) => {
   }
 
   const rawMessage = String(lastError?.message || '').split('\n')[0].slice(0, 220)
-  const message = /sad sad panda|line:\s*NaN|column:\s*NaN/i.test(rawMessage)
-    ? 'Java parser sözdizimi hatası buldu. Parantezleri, annotation konumunu ve class/method yapısını kontrol et.'
-    : (rawMessage || 'Java sözdizimi çözümlenemedi. Parantezleri ve declaration yapısını kontrol et.')
+  const position = rawMessage.match(/line:\s*(\d+),\s*column:\s*(\d+)/i)
+  const message = position && templates.every((template) => template === '__ANSWER__')
+    ? `${position[1]}. satır, ${position[2]}. sütun civarında Java sözdizimi hatası. Parantez, noktalı virgül ve ifadeleri kontrol et.`
+    : /sad sad panda|line:\s*NaN|column:\s*NaN/i.test(rawMessage)
+      ? 'Java parser sözdizimi hatası buldu. Parantezleri, annotation konumunu ve class/method yapısını kontrol et.'
+      : (rawMessage || 'Java sözdizimi çözümlenemedi. Parantezleri ve declaration yapısını kontrol et.')
   self.postMessage({ id, ok: false, message })
 }
