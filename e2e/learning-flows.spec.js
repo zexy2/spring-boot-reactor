@@ -143,6 +143,34 @@ test('unfinished Java code draft autosaves and returns after reload', async ({ p
   await expect(editor).toHaveAttribute('maxlength', '20000')
 })
 
+test('code editor keyboard shortcuts expose an accessible exit and feedback', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  const editor = workout.getByRole('textbox', { name: /kod editörü/ })
+  const helpId = await editor.getAttribute('aria-describedby')
+  expect(helpId).toBeTruthy()
+  const help = page.locator(`[id="${helpId}"]`)
+  await expect(help).toBeVisible()
+  await expect(help).toContainText('Esc: düğmelere geç')
+
+  await editor.fill('class Test {}')
+  await editor.press('End')
+  await editor.press('Tab')
+  await expect(editor).toHaveValue('class Test {}  ')
+  await expect(editor).toBeFocused()
+
+  await editor.press('Escape')
+  await expect(workout.getByRole('button', { name: 'Kodu kontrol et' })).toBeFocused()
+  await editor.focus()
+  await editor.press('Shift+Tab')
+  await expect(editor).not.toBeFocused()
+  await editor.focus()
+  await editor.press('ControlOrMeta+Enter')
+  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+})
+
 test('Java draft survives a reload immediately after typing', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)

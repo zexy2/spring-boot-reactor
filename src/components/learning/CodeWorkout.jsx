@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { buildCodePractice, evaluateCodeRequirements, getSyntaxTemplates } from '../../learning/codePractice'
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
@@ -30,6 +30,8 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const [syntaxResult, setSyntaxResult] = useState(null)
   const verificationId = useRef(0)
   const gutterRef = useRef(null)
+  const actionsRef = useRef(null)
+  const editorHelpId = useId()
 
   useEffect(() => {
     verificationId.current += 1
@@ -98,7 +100,13 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   }
 
   const editKeyboard = (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    if (event.key === 'Escape' && !event.isComposing) {
+      const nextAction = actionsRef.current?.querySelector('button:not(:disabled)')
+      if (nextAction) {
+        event.preventDefault()
+        nextAction.focus()
+      }
+    } else if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault()
       void verify()
     } else if (event.key === 'Tab' && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -143,18 +151,18 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
         <div><small>SENİN KODUN</small>
           <div className="code-editor-shell">
             <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">{answer.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div>
-            <textarea aria-label={`${lesson.title} kod editörü`} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder="Eksik kodu buraya yaz..." />
+            <textarea aria-label={`${lesson.title} kod editörü`} aria-describedby={editorHelpId} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder="Eksik kodu buraya yaz..." />
           </div>
-          <p className="code-scroll-help">Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk · Ctrl/Cmd+Enter: kontrol.</p>
+          <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
       </div>
       <div className="code-requirements">
         {checks.map((item) => <span key={item.label} className={checked ? (item.ok ? 'ok' : 'missing') : ''}>{checked ? (item.ok ? '✓' : '×') : '·'} {item.label}</span>)}
         {syntaxRequired && <span className={checked && syntaxResult && !syntaxResult.checking ? (syntaxResult.ok ? 'ok' : 'missing') : ''}>{checked && syntaxResult ? (syntaxResult.checking ? '…' : syntaxResult.ok ? '✓' : '×') : '·'} Java sözdizimi</span>}
       </div>
-      {checked && <div className={`code-workout-feedback ${success ? 'good' : 'bad'}`}><strong>{feedbackTitle}</strong><span>{feedbackText}</span></div>}
+      {checked && <div className={`code-workout-feedback ${success ? 'good' : 'bad'}`} role="status" aria-live="polite" aria-atomic="true"><strong>{feedbackTitle}</strong><span>{feedbackText}</span></div>}
       {challenge.hint && <details className="code-workout-hint"><summary>İpucu göster</summary><p>{challenge.hint}</p></details>}
-      <div className="code-workout-actions">
+      <div className="code-workout-actions" ref={actionsRef}>
         <button className="complete-button" onClick={verify} disabled={!answer.trim() || syntaxResult?.checking}>{syntaxResult?.checking ? 'Kontrol ediliyor…' : 'Kodu kontrol et'}</button>
         {challenge.editableStarter && <button className="reveal" onClick={() => { updateAnswer(challenge.starter); setRevealed(false) }}>Baştan başla</button>}
         <button className="reveal" onClick={() => setRevealed((value) => !value)}>{revealed ? 'Çözümü gizle' : 'Örnek çözümü göster'}</button>

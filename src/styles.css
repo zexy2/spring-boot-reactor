@@ -1147,7 +1147,7 @@ body::before {
 .code-editor-gutter { overflow: hidden; padding: 18px 4px 18px 0; background: rgba(131,183,255,.035); color: #6482a0; text-align: right; user-select: none; font: 400 12px/1.65 'IBM Plex Mono', monospace; }
 .code-editor-gutter span { display: block; height: 1.65em; }
 .code-editor-shell textarea { min-width: 0; }
-.code-scroll-help { display: none; }
+.code-scroll-help { display: block; margin: 0; padding: 0 14px 12px; color: #8fa8c0; font: 500 11px/1.5 'IBM Plex Mono', monospace; }
 .code-workout-grid textarea:focus-visible { box-shadow: inset 0 0 0 2px var(--blue); }
 .code-workout-grid textarea::placeholder { color: #536b83; }
 .code-workout-guide { min-height: 230px; display: grid; align-content: start; gap: 8px; padding: 18px; }
