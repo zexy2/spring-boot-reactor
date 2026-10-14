@@ -29,7 +29,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+          cache: maven
       - run: npm run test:java
+      - run: npm run test:spring
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - name: Verify GitHub Pages production build

@@ -4,7 +4,11 @@ export const springCodeChallenges = {
   annotations: {
     prompt: 'GreetingService’i bean yap; GET /hello isteğini service’e yönlendir.',
     editableStarter: true,
-    starter: `// TODO: GreetingService için doğru stereotype annotation'ı ekle
+    starter: `import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+// TODO: GreetingService için doğru stereotype annotation'ı ekle
 class GreetingService {
   String greet() { return "Merhaba"; }
 }
@@ -19,7 +23,11 @@ class GreetingController {
     // TODO: greetings.greet() sonucunu döndür
   }
 }`,
-    solution: `@Service
+    solution: `import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@Service
 class GreetingService {
   String greet() { return "Merhaba"; }
 }
@@ -61,6 +69,9 @@ class GreetingController {
     prompt: 'Clock için singleton bean, sayaç için prototype bean tanımla.',
     editableStarter: true,
     starter: `import java.time.Clock;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Scope;
 
 class RequestTracker {
   int count;
@@ -74,6 +85,9 @@ class AppConfig {
   // TODO: @Bean ve @Scope("prototype") kullanarak RequestTracker tracker() tanımla
 }`,
     solution: `import java.time.Clock;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Scope;
 
 class RequestTracker {
   int count;
@@ -117,7 +131,9 @@ class AppConfig {
   'ioc-di': {
     prompt: 'CheckoutService’e PaymentClient’ı constructor ile ver, negatif tutarı reddet.',
     editableStarter: true,
-    starter: `interface PaymentClient {
+    starter: `import org.springframework.stereotype.Service;
+
+interface PaymentClient {
   boolean charge(int cents);
 }
 
@@ -131,7 +147,9 @@ class CheckoutService {
     // TODO: paymentClient.charge(cents) sonucunu döndür
   }
 }`,
-    solution: `interface PaymentClient {
+    solution: `import org.springframework.stereotype.Service;
+
+interface PaymentClient {
   boolean charge(int cents);
 }
 
@@ -181,6 +199,10 @@ class CheckoutService {
     prompt: 'Ürün oluştururken 201 Created, Location header ve response body döndür.',
     editableStarter: true,
     starter: `import java.net.URI;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 record CreateProductRequest(String name) {}
 record ProductResponse(Long id, String name) {}
@@ -198,6 +220,10 @@ class ProductController {
   }
 }`,
     solution: `import java.net.URI;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 record CreateProductRequest(String name) {}
 record ProductResponse(Long id, String name) {}
@@ -243,7 +269,14 @@ class ProductController {
   'request-inputs': {
     prompt: 'GET isteğinde path/query, POST isteğinde JSON body parametresini bağla.',
     editableStarter: true,
-    starter: `record CreateProductRequest(String name) {}
+    starter: `import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+record CreateProductRequest(String name) {}
 
 @RestController
 class ProductController {
@@ -257,7 +290,14 @@ class ProductController {
     return request.name();
   }
 }`,
-    solution: `record CreateProductRequest(String name) {}
+    solution: `import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+record CreateProductRequest(String name) {}
 
 @RestController
 class ProductController {
@@ -306,7 +346,15 @@ class ProductController {
   validation: {
     prompt: 'Kullanıcı kaydında name/email kurallarını tanımla ve @Valid ile çalıştır.',
     editableStarter: true,
-    starter: `record CreateUserRequest(
+    starter: `import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+record CreateUserRequest(
   // TODO: name boş olmasın
   String name,
   // TODO: email boş olmasın ve email biçiminde olsun
@@ -320,7 +368,15 @@ class UserController {
     return ResponseEntity.status(201).build();
   }
 }`,
-    solution: `record CreateUserRequest(
+    solution: `import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+record CreateUserRequest(
   @NotBlank String name,
   @NotBlank @Email String email
 ) {}
@@ -355,6 +411,9 @@ class UserController {
     prompt: 'Product entity ve tipli JpaRepository içinde iki derived query tanımla.',
     editableStarter: true,
     starter: `import java.util.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 // TODO: JPA entity annotation'ı
 class Product {
@@ -371,6 +430,9 @@ interface ProductRepository {
   // TODO: sku üzerinden Optional<Product> bul
 }`,
     solution: `import java.util.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 @Entity
 class Product {
@@ -418,6 +480,8 @@ interface ProductRepository extends JpaRepository<Product, Long> {
     prompt: 'Transfer işlemini tek @Transactional sınırına al, geçersiz tutarı reddet.',
     editableStarter: true,
     starter: `import java.math.BigDecimal;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 interface LedgerRepository {
   void debit(long accountId, BigDecimal amount);
@@ -437,6 +501,8 @@ class TransferService {
   }
 }`,
     solution: `import java.math.BigDecimal;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 interface LedgerRepository {
   void debit(long accountId, BigDecimal amount);
@@ -481,7 +547,12 @@ class TransferService {
   exceptions: {
     prompt: 'ProductNotFoundException hatasını merkezi olarak 404 JSON yanıtına çevir.',
     editableStarter: true,
-    starter: `record ErrorResponse(String code, String message) {}
+    starter: `import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+record ErrorResponse(String code, String message) {}
 class ProductNotFoundException extends RuntimeException {
   ProductNotFoundException(String message) { super(message); }
 }
@@ -493,7 +564,12 @@ class ApiExceptionHandler {
     // TODO: NOT_FOUND status + PRODUCT_NOT_FOUND kodlu ErrorResponse oluştur
   }
 }`,
-    solution: `record ErrorResponse(String code, String message) {}
+    solution: `import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+record ErrorResponse(String code, String message) {}
 class ProductNotFoundException extends RuntimeException {
   ProductNotFoundException(String message) { super(message); }
 }
