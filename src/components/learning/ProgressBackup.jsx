@@ -5,7 +5,7 @@ import {
   parseProgressBackup,
 } from '../../learning/progressTransfer'
 
-export default function ProgressBackup({ completed, learning, onRestore }) {
+export default function ProgressBackup({ completed, learning, onRestore, importOnly = false }) {
   const fileRef = useRef(null)
   const [mode, setMode] = useState('merge')
   const [status, setStatus] = useState('')
@@ -53,9 +53,9 @@ export default function ProgressBackup({ completed, learning, onRestore }) {
 
   return (
     <details className="progress-backup">
-      <summary>İlerlemeyi yedekle / geri yükle</summary>
+      <summary>{importOnly ? 'Geçerli JSON yedeğini yükle' : 'İlerlemeyi yedekle / geri yükle'}</summary>
       <div className="progress-backup-actions">
-        <button type="button" onClick={download} disabled={busy}>JSON indir</button>
+        {!importOnly && <button type="button" onClick={download} disabled={busy}>JSON indir</button>}
         <label>
           <span>Yükleme modu</span>
           <select value={mode} disabled={busy} onChange={(event) => setMode(event.target.value)}>
@@ -66,7 +66,7 @@ export default function ProgressBackup({ completed, learning, onRestore }) {
         <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? 'Okunuyor…' : 'JSON yükle'}</button>
         <input ref={fileRef} type="file" accept=".json,application/json" onChange={upload} aria-label="İlerleme yedek dosyası" hidden />
       </div>
-      <small>İlerleme bu tarayıcıda saklanır. JSON dosyasını güvenli bir yerde tut.</small>
+      <small>{importOnly ? 'Bozuk kayıt korunuyor. Geçerli yedek yüklenince kayıt yeniden başlar.' : 'İlerleme bu tarayıcıda saklanır. JSON dosyasını güvenli bir yerde tut.'}</small>
       {status && <p className="progress-backup-status" role="status" aria-live="polite">{status}</p>}
     </details>
   )

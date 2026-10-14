@@ -15,8 +15,8 @@ import { buildCodePractice } from './learning/codePractice'
 import { buildCheckpointQuestions, buildRetryQuestion } from './learning/checkpointQuestions'
 import { conceptAliases, escapeRegex, getConceptDetail, getLessonTerms, getPrerequisites, normalizeConcept } from './learning/concepts'
 import { buildAdaptiveMasteryPlan, insertSpacedRetry } from './learning/adaptiveMastery'
-import { validatedCompletedLessonIds } from './learning/progressIntegrity'
 import { restoreProgressBackup } from './learning/progressTransfer'
+import { loadProgressStorage, rawProgressRecovery, saveProgressStorage } from './learning/progressStorage'
 import { isLessonShortcut, lessonIdFromUrl, lessonUrl, shouldHandleLessonLinkClick } from './learning/lessonNavigation'
 import {
   getGuidedActiveRecall,
@@ -33,7 +33,6 @@ import {
   formatReviewDistance,
   learningRecord,
   learningStatus,
-  migrateLegacyCodeConceptIds,
   nextReviewInterval,
   recordCheckpointAnswer,
   recordConceptAnswer,
@@ -2285,22 +2284,7 @@ function LessonLab({ lesson }) {
   return <DecisionLab lesson={lesson} />
 }
 
-const LEARNING_KEY = 'spring-reactor-learning-v1'
 const DAY_MS = 24 * 60 * 60 * 1000
-
-function loadLearningState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(LEARNING_KEY) || '{}')
-    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {}
-    return Object.fromEntries(Object.entries(saved).flatMap(([id, value]) => {
-      const lesson = lessons.find((item) => item.id === id)
-      if (!lesson || !value || typeof value !== 'object' || Array.isArray(value)) return []
-      return [[id, migrateLegacyCodeConceptIds(value, id, lesson.codeNotes)]]
-    }))
-  } catch {
-    return {}
-  }
-}
 
 function recallDistractors(lesson, correctValue, preferredValues, seedText) {
   const values = [
@@ -2979,24 +2963,14 @@ function Lesson({ lesson, completed, onComplete, onNext, nextLesson, index, tota
   )
 }
 
-const PROGRESS_KEY = 'spring-reactor-progress-v3'
 const LESSON_IDS = lessons.map((lesson) => lesson.id)
-
-function loadProgress() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '[]')
-    return Array.isArray(saved) ? saved.filter((id) => lessons.some((lesson) => lesson.id === id)) : []
-  } catch {
-    return []
-  }
-}
 
 function App() {
   const [initialState] = useState(() => {
-    const learningState = loadLearningState()
-    return {
-      learning: learningState,
-      completed: validatedCompletedLessonIds(loadProgress(), learningState, lessons),
+    try {
+      return loadProgressStorage(window.localStorage, lessons)
+    } catch {
+      return { completed: [], learning: {}, blocked: true, reason: 'Tarayıcı depolamasına erişilemiyor. Otomatik kayıt durduruldu.' }
     }
   })
   const [completed, setCompleted] = useState(initialState.completed)
@@ -3012,6 +2986,7 @@ function App() {
   const [focus, setFocus] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
   const [storageWarning, setStorageWarning] = useState(false)
+  const [recoveryIssue, setRecoveryIssue] = useState(initialState.blocked ? initialState.reason : '')
   const [roadmapOpen, setRoadmapOpen] = useState(false)
   const [roadmapQuery, setRoadmapQuery] = useState('')
   const [roadmapFilter, setRoadmapFilter] = useState('all')
@@ -3067,15 +3042,15 @@ function App() {
   const activeHasCodeWorkout = useMemo(() => Boolean(buildCodePractice(activeLesson)), [activeLesson])
 
   useEffect(() => {
+    if (recoveryIssue) return
     try {
-      localStorage.setItem(PROGRESS_KEY, JSON.stringify(completed))
-      localStorage.setItem(LEARNING_KEY, JSON.stringify(learning))
+      saveProgressStorage(window.localStorage, completed, learning, lessons)
       setStorageWarning(false)
     } catch {
       // QuotaExceededError and SecurityError must not crash the lesson UI.
       setStorageWarning(true)
     }
-  }, [completed, learning])
+  }, [completed, learning, recoveryIssue])
   useLayoutEffect(() => {
     latestProgress.current = { completed, learning }
   }, [completed, learning])
@@ -3117,7 +3092,24 @@ function App() {
     latestProgress.current = restored
     setLearning(restored.learning)
     setCompleted(restored.completed)
+    setRecoveryIssue('')
     return restored
+  }
+
+  const downloadRawRecovery = () => {
+    try {
+      const raw = JSON.stringify(rawProgressRecovery(window.localStorage), null, 2)
+      const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }))
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `java-backend-ham-kurtarma-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setStorageWarning(true)
+    }
   }
 
   useEffect(() => {
@@ -3286,6 +3278,16 @@ function App() {
           <button className="focus-toggle" onClick={() => setFocus((v) => !v)}>{focus ? 'Haritayı aç' : 'Odak modu'}</button>
         </div>
       </header>
+      {recoveryIssue && (
+        <div className="storage-warning" role="alert">
+          <strong>{recoveryIssue}</strong> Mevcut veri üzerine yazılmıyor. Ham kurtarma dosyasını indir; geçerli ilerleme JSON yedeğini aşağıdan yükleyerek kaydı yeniden başlatabilirsin.
+          <div className="storage-recovery-actions">
+            <button type="button" onClick={downloadRawRecovery}>Ham verileri indir</button>
+            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} importOnly />
+          </div>
+          <small>Ham kurtarma dosyası, normal ilerleme yedeği yerine doğrudan yüklenemez.</small>
+        </div>
+      )}
       {storageWarning && <div className="storage-warning" role="alert">İlerleme bu cihazda kaydedilemiyor. Tarayıcı depolama ayarlarını kontrol et; sayfayı yenilersen son çalışmaların kaybolabilir. JSON yedeğini indir.</div>}
       {readinessOpen && <div id="readiness-panel"><ReadinessPanel readiness={readiness} onClose={closeReadiness} /></div>}
 
