@@ -4,6 +4,7 @@ import { interviewDeck } from '../../data/curriculum'
 import { selectRoleInterviewRound, summarizeRoleInterview } from '../../data/roleInterview'
 import { hashString } from '../../learning/choiceUtils'
 import { getLessonTerms } from '../../learning/concepts'
+import { useInterviewCountdown } from './useInterviewCountdown'
 
 function buildLessonInterviewDeck(lesson) {
   const cards = []
@@ -45,10 +46,9 @@ const interviewRubric = [
 function InterviewMode({ lesson, record, onAttempt }) {
   const [index, setIndex] = useState(0)
   const [started, setStarted] = useState(false)
-  const [running, setRunning] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(60)
   const [answer, setAnswer] = useState('')
   const [revealed, setRevealed] = useState(false)
+  const { secondsLeft, running, startCountdown, stopCountdown, resetCountdown } = useInterviewCountdown(60, () => setRevealed(true))
   const [rubric, setRubric] = useState(() => interviewRubric.map(() => false))
   const [submittedScore, setSubmittedScore] = useState(null)
   const deck = useMemo(() => buildLessonInterviewDeck(lesson), [lesson])
@@ -57,33 +57,18 @@ function InterviewMode({ lesson, record, onAttempt }) {
   useEffect(() => {
     setIndex(0)
     setStarted(false)
-    setRunning(false)
-    setSecondsLeft(60)
+    resetCountdown()
     setAnswer('')
     setRevealed(false)
     setRubric(interviewRubric.map(() => false))
     setSubmittedScore(null)
-  }, [lesson.id])
-
-  useEffect(() => {
-    if (!running) return undefined
-    const timer = window.setInterval(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1000)
-    return () => window.clearInterval(timer)
-  }, [running])
-
-  useEffect(() => {
-    if (running && secondsLeft === 0) {
-      setRunning(false)
-      setRevealed(true)
-    }
-  }, [running, secondsLeft])
+  }, [lesson.id, resetCountdown])
 
   if (!card) return null
 
   const resetAttempt = () => {
     setStarted(false)
-    setRunning(false)
-    setSecondsLeft(60)
+    resetCountdown()
     setAnswer('')
     setRevealed(false)
     setRubric(interviewRubric.map(() => false))
@@ -93,12 +78,12 @@ function InterviewMode({ lesson, record, onAttempt }) {
   const start = () => {
     resetAttempt()
     setStarted(true)
-    setRunning(true)
+    startCountdown()
   }
 
   const revealForScoring = () => {
     if (!started) return
-    setRunning(false)
+    stopCountdown()
     setRevealed(true)
   }
 
@@ -174,10 +159,9 @@ function RoleInterviewPanel() {
     }
   })
   const [index, setIndex] = useState(0)
-  const [running, setRunning] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(90)
   const [answer, setAnswer] = useState('')
   const [revealed, setRevealed] = useState(false)
+  const { secondsLeft, running, startCountdown, stopCountdown, resetCountdown } = useInterviewCountdown(90, () => setRevealed(true))
   const [rubric, setRubric] = useState([false, false, false, false])
   const [scores, setScores] = useState([])
   const [lastResult, setLastResult] = useState(() => {
@@ -190,21 +174,8 @@ function RoleInterviewPanel() {
   const deck = useMemo(() => selectRoleInterviewRound(round), [round])
   const card = deck[index]
 
-  useEffect(() => {
-    if (!running) return undefined
-    const timer = window.setInterval(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1000)
-    return () => window.clearInterval(timer)
-  }, [running])
-
-  useEffect(() => {
-    if (running && secondsLeft === 0) {
-      setRunning(false)
-      setRevealed(true)
-    }
-  }, [running, secondsLeft])
-
   const resetQuestion = () => {
-    setSecondsLeft(90)
+    resetCountdown()
     setAnswer('')
     setRevealed(false)
     setRubric([false, false, false, false])
@@ -216,11 +187,11 @@ function RoleInterviewPanel() {
     setIndex(0)
     setScores([])
     resetQuestion()
-    setRunning(true)
+    startCountdown()
   }
 
   const evaluate = () => {
-    setRunning(false)
+    stopCountdown()
     setRevealed(true)
   }
 
@@ -237,13 +208,13 @@ function RoleInterviewPanel() {
       } catch {
         // Private browsing or disabled storage: round still completes in memory.
       }
-      setRunning(false)
+      stopCountdown()
       setMode('complete')
       return
     }
     setIndex((value) => value + 1)
     resetQuestion()
-    setRunning(true)
+    startCountdown()
   }
 
   if (mode === 'idle') {
@@ -325,10 +296,9 @@ function MixedInterviewPanel() {
   const [open, setOpen] = useState(false)
   const [round, setRound] = useState(0)
   const [index, setIndex] = useState(0)
-  const [running, setRunning] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(60)
   const [answer, setAnswer] = useState('')
   const [revealed, setRevealed] = useState(false)
+  const { secondsLeft, running, startCountdown, stopCountdown, resetCountdown } = useInterviewCountdown(60, () => setRevealed(true))
   const [rubric, setRubric] = useState(() => interviewRubric.map(() => false))
   const [scores, setScores] = useState([])
   const sessionDeck = useMemo(() => {
@@ -339,21 +309,8 @@ function MixedInterviewPanel() {
   }, [round])
   const card = sessionDeck[index] ?? sessionDeck[0]
 
-  useEffect(() => {
-    if (!running) return undefined
-    const timer = window.setInterval(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1000)
-    return () => window.clearInterval(timer)
-  }, [running])
-
-  useEffect(() => {
-    if (running && secondsLeft === 0) {
-      setRunning(false)
-      setRevealed(true)
-    }
-  }, [running, secondsLeft])
-
   const resetQuestion = () => {
-    setSecondsLeft(60)
+    resetCountdown()
     setAnswer('')
     setRevealed(false)
     setRubric(interviewRubric.map(() => false))
@@ -365,7 +322,7 @@ function MixedInterviewPanel() {
     setIndex(0)
     setScores([])
     resetQuestion()
-    setRunning(true)
+    startCountdown()
   }
 
   const score = rubric.filter(Boolean).length
@@ -373,12 +330,12 @@ function MixedInterviewPanel() {
     const nextScores = [...scores, score]
     setScores(nextScores)
     if (index >= sessionDeck.length - 1) {
-      setRunning(false)
+      stopCountdown()
       return
     }
     setIndex((current) => current + 1)
     resetQuestion()
-    setRunning(true)
+    startCountdown()
   }
 
   const complete = scores.length === sessionDeck.length
@@ -417,7 +374,7 @@ function MixedInterviewPanel() {
         placeholder="Cevabı mülakatta söyleyeceğin sırayla yaz..."
         aria-label="Karma mülakat cevabın"
       />
-      {!revealed && <button className="reveal" onClick={() => { setRunning(false); setRevealed(true) }}>Cevabı bitir ve değerlendir</button>}
+      {!revealed && <button className="reveal" onClick={() => { stopCountdown(); setRevealed(true) }}>Cevabı bitir ve değerlendir</button>}
       {revealed && (
         <div className="interview-evaluation">
           <div className="interview-reference"><small>REFERANS CEVAP</small><p>{card[1]}</p></div>
