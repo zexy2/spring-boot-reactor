@@ -129,6 +129,30 @@ test('generated fill-in-the-gap activities reject substrings hidden in unrelated
   }
   assert.deepEqual(evaluateCodeRequirements('public class Product', java).checks,
     [{ label: 'Eksik parçayı doğru tamamladın', ok: true }])
+  assert.match(evaluateCodeRequirements('public class Product { }', java).feedback, /Kodun tamamını/)
+  assert.match(evaluateCodeRequirements('"public class Product"', java).feedback, /yorum veya metin/)
+  assert.match(evaluateCodeRequirements('public class product', java).feedback, /Büyük\/küçük harf/)
+  assert.match(evaluateCodeRequirements('public class Product more', java).feedback, /fazladan kod/)
+  assert.equal(evaluateCodeRequirements('public class Product', java).feedback, null)
+})
+
+test('generated exercises use lesson-appropriate missing-part markers', () => {
+  const expected = {
+    config: ['timeout: 2s', '# TODO: eksik yapılandırma'],
+    'python-basics': ['def active_names', '# TODO: eksik Python ifadesi'],
+    'git-workflow': ['git switch -c', '# TODO: eksik komut'],
+    'docker-basics': ['FROM', '# TODO: eksik Dockerfile ifadesi'],
+    'test-strategy': ['valid request -> 201', '# TODO: eksik senaryo'],
+    'ci-basics': ['git push', '[TODO: eksik adım]'],
+    'sql-basics': ['SELECT id, name, price', '/* TODO: burayı sen yaz */'],
+  }
+  for (const [id, [fragment, placeholder]] of Object.entries(expected)) {
+    const lesson = lessons.find((item) => item.id === id)
+    const challenge = buildCodePractice(lesson)
+    assert.equal(challenge.expected, fragment, id)
+    assert.ok(challenge.starter.includes(placeholder), id)
+    assert.ok(!challenge.starter.includes(fragment), id)
+  }
 })
 
 test('generated SQL keywords accept SQL casing, but still reject unrelated extra text', () => {

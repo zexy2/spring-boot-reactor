@@ -58,7 +58,7 @@ flowchart LR
     E --> A
 ```
 
-Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıcı içi alıştırmalardır**. Gerçek bir Java derleyicisi, canlı mikroservis ağı veya Kubernetes kümesi yerine geçmez.
+Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıcı içi alıştırmalardır**. Kod boşluğu sorularında yalnızca eksik ifade yazılır; doğru yazım kontrol edilir ve hatalı denemelerde geri bildirim sunulur. Daha kapsamlı Java görevlerinde gereksinim taraması ve uygun olduğunda sözdizimi ayrıştırması yapılır. Bu kontroller **Java derlemesi, tür denetimi veya davranış testi değildir**; canlı mikroservis ağı ya da Kubernetes kümesi de çalıştırılmaz.
 
 <a id="curriculum"></a>
 ## 14 aşamalı öğrenme yolu

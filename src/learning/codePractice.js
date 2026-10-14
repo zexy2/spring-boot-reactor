@@ -472,21 +472,48 @@ export function buildCodePractice(lesson) {
   const candidate = lesson.codeNotes.find(([fragment]) => {
     const value = String(fragment)
     return value.length >= 3 && value.length <= 100 && source.includes(value) && !/[↓→]/.test(value)
+      && (!lesson.practiceFragment || value === lesson.practiceFragment)
   })
   if (!candidate) return null
 
   const [fragment, explanation] = candidate
+  const placeholders = {
+    python: '# TODO: eksik Python ifadesi',
+    shell: '# TODO: eksik komut',
+    dockerfile: '# TODO: eksik Dockerfile ifadesi',
+    yaml: '# TODO: eksik yapılandırma',
+    gherkin: '# TODO: eksik senaryo',
+    diagram: '[TODO: eksik adım]',
+  }
   return {
     id: `${lesson.id}-generated`,
     answerMode: 'fragment',
     caseInsensitive: lesson.id.startsWith('sql-') || lesson.id === 'database-acid',
     prompt: `Eksik parçayı kendin yaz: ${explanation}`,
-    starter: source.replace(fragment, '/* TODO: burayı sen yaz */'),
+    starter: source.replace(fragment, placeholders[lesson.practiceLanguage] ?? '/* TODO: burayı sen yaz */'),
     solution: fragment,
     completedExample: source,
     expected: fragment,
     requirements: [[fragment, fragment]],
   }
+}
+
+function fragmentAttemptFeedback(answer, challenge) {
+  const submitted = String(answer).trim().replace(/\s+/g, ' ')
+  const expected = String(challenge.expected ?? '').trim().replace(/\s+/g, ' ')
+  if (challenge.completedExample && submitted === challenge.completedExample.trim().replace(/\s+/g, ' ')) {
+    return 'Kodun tamamını yapıştırdın. TODO konumuna gelecek tek ifadeyi yaz.'
+  }
+  if (/^(?:\/\/|\/\*|#)/.test(submitted) || /^["'`].*["'`]$/.test(submitted)) {
+    return 'Cevabı yorum veya metin olarak yazma; eksik kod ifadesini doğrudan gir.'
+  }
+  if (!challenge.caseInsensitive && submitted.toLocaleLowerCase('en-US') === expected.toLocaleLowerCase('en-US')) {
+    return 'Büyük/küçük harf farkını kontrol et. Bu örnekte yazım birebir eşleşmeli.'
+  }
+  if (expected && submitted.includes(expected)) {
+    return 'Doğru ifade cevapta var, ancak fazladan kod veya açıklama eklemişsin.'
+  }
+  return 'Kod iskeletindeki TODO yerini incele. Sadece eksik ifadeyi yaz.'
 }
 
 function matchesExecutablePattern(pattern, code, unquotedCode, maskedLiterals, literals) {
@@ -531,6 +558,7 @@ export function evaluateCodeRequirements(answer, challenge) {
       checks: [{ label: 'Eksik parçayı doğru tamamladın', ok: matches }],
       generatedMatch: matches,
       staticSuccess: matches && String(answer).trim().length > 0,
+      feedback: matches ? null : fragmentAttemptFeedback(answer, challenge),
     }
   }
 

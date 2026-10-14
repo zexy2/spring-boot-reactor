@@ -44,12 +44,13 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
 
   if (!challenge) return null
 
-  const { checks, staticSuccess } = evaluateCodeRequirements(answer, challenge)
+  const { checks, staticSuccess, feedback } = evaluateCodeRequirements(answer, challenge)
   const syntaxTemplates = getSyntaxTemplates(challenge)
   const syntaxRequired = syntaxTemplates.length > 0
   const isFragmentExercise = challenge.answerMode === 'fragment'
   const syntaxOk = !syntaxRequired || syntaxResult?.ok === true
   const success = staticSuccess && syntaxOk
+  const displayedPass = passed || (checked && success)
 
   const updateAnswer = (nextAnswer) => {
     verificationId.current += 1
@@ -126,7 +127,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       ? 'Eksik parçanın metni doğrulandı. Bu alıştırma kod derleme veya davranış testi değildir.'
       : 'Statik gereksinimler doğrulandı. Pratik öğrenme kaydına işlendi; gerçek Java çalıştırma testi yapılmadı.'
     : isFragmentExercise
-      ? 'Soldaki kod iskeletindeki TODO konumuna gelecek tek parçayı yaz. Ek açıklama veya tüm kodu yapıştırma.'
+      ? (checked && feedback) || 'Soldaki kod iskeletindeki TODO konumuna gelecek tek parçayı yaz. Ek açıklama veya tüm kodu yapıştırma.'
       : 'Requirement satırlarına bakıp kodu düzelt; doğrudan cevabı kopyalamadan bir kez daha dene.'
   if (checked && staticSuccess && syntaxRequired) {
     if (syntaxResult?.checking) {
@@ -142,8 +143,8 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   }
 
   return (
-    <section className={`code-workout ${passed || success ? 'passed' : ''}`}>
-      <div className="section-label"><span>{isFragmentExercise ? 'KOD PARÇASINI TAMAMLA' : 'KODU SEN YAZ'}</span><b>{passed || success ? '✓ TAMAMLANDI' : isFragmentExercise ? 'EKSİK PARÇA' : 'EDITOR CHALLENGE'}</b></div>
+    <section className={`code-workout ${displayedPass ? 'passed' : ''}`}>
+      <div className="section-label"><span>{isFragmentExercise ? 'KOD PARÇASINI TAMAMLA' : 'KODU SEN YAZ'}</span><b>{displayedPass ? '✓ TAMAMLANDI' : isFragmentExercise ? 'EKSİK PARÇA' : 'EDITOR CHALLENGE'}</b></div>
       <h2>{challenge.prompt}</h2>
       <p>{challenge.editableStarter
         ? 'Sağdaki Java iskeletindeki TODO satırlarını gerçek kodla değiştir. Gereksinimler ve Java sözdizimi kontrol edilir; kod derlenip çalıştırılmaz.'

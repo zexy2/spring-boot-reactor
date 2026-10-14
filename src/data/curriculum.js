@@ -168,7 +168,7 @@ const existingLessons = [
     question: 'Merkezi API hata yönetimi için?', options: ['@RestControllerAdvice', '@Entity', '@Scheduled'], answer: 0,
   },
   {
-    id: 'config', phase: 'resilience', title: 'Config & profiles', minutes: 8, xp: 80,
+    id: 'config', phase: 'resilience', title: 'Config & profiles', minutes: 8, xp: 80, practiceLanguage: 'yaml', practiceFragment: 'timeout: 2s',
     hook: 'DB şifresini Java dosyasına yazma. Ortama göre config değişir.',
     story: 'Local, test ve production aynı kodu çalıştırabilir; bağlantı bilgileri ve bazı davranışlar ortamdan gelir.',
     points: ['application.yml varsayılan config taşır.', 'Profile ortam özel config için kullanılabilir ama secret manager’ın yerine geçmez.', '@ConfigurationProperties ilgili ayarları type-safe bir nesnede toplar.'],
@@ -456,7 +456,7 @@ const existingLessons = [
     question: 'DevOps için en doğru ifade hangisi?', options: ['Development ve operations görevlerini tek kişide toplamak', 'Teslim sürecinde ekip iş birliği + otomasyon + feedback yaklaşımı', 'CI/CD pipeline kurulduğunda organizasyonel iş birliğini ayrıca düşünmemek'], answer: 1,
   },
   {
-    id: 'ci-basics', phase: 'devops', title: 'CI nedir? Continuous Integration', minutes: 10, xp: 100,
+    id: 'ci-basics', phase: 'devops', title: 'CI nedir? Continuous Integration', minutes: 10, xp: 100, practiceLanguage: 'diagram',
     hook: 'Kod repository’ye geldiğinde otomatik build ve test çalışıyorsa CI düşüncesine giriyorsun.',
     story: 'Bir developer commit gönderdi. Pipeline kodu checkout eder, Maven build çalıştırır ve testleri koşturur. Test kırılırsa hatalı değişiklik erken yakalanır.',
     terms: [['CI', 'Developer değişikliklerini sık birleştirip otomatik build ve testlerle hızlı doğrulama yaklaşımı.'], ['pipeline', 'Bir değişikliğin geçtiği otomatik adımlar zinciri.'], ['trigger', 'Pipeline’ı başlatan push, pull request veya tag gibi olay.'], ['quality gate', 'Belirlenen test/analiz koşulları sağlanmadan sonraki aşamaya geçmeyi engelleyen kontrol.']],
@@ -486,7 +486,7 @@ const existingLessons = [
     question: 'Artifact ne?', options: ['Build sonucunda üretilen deploy edilebilir çıktı', 'pom.xml içindeki dependency listesi', 'Uygulamanın çalışan JVM process’i'], answer: 0,
   },
   {
-    id: 'docker-basics', phase: 'devops', title: 'Docker & Container temeli', minutes: 11, xp: 110,
+    id: 'docker-basics', phase: 'devops', title: 'Docker & Container temeli', minutes: 11, xp: 110, practiceLanguage: 'dockerfile',
     hook: 'Image paketlenmiş şablon; container o image’ın çalışan instance’ıdır.',
     story: 'JAR tek başına Java runtime ve işletim sistemi ayrıntılarına bağlı olabilir. Docker image uygulama ve gerekli runtime katmanlarını standart bir paket halinde taşımaya yardım eder.',
     terms: [['Docker image', 'Uygulama ve runtime dosyalarını katmanlı, değişmez paket olarak tanımlayan image.'], ['container', 'Bir image’dan başlatılmış çalışan process izolasyonu.'], ['Dockerfile', 'Image’ın hangi adımlarla oluşturulacağını tanımlayan dosya.'], ['registry', 'Docker image sürümlerinin push/pull edildiği merkezi depo.']],
@@ -819,7 +819,7 @@ const interviewExpansionLessons = [
     question: 'Mockito mock’un temel amacı?', options: ['Dependency davranışını test içinde kontrol edip unit’i izole etmek', 'Production DB’yi otomatik oluşturmak', 'Spring Boot’u deploy etmek'], answer: 0,
   },
   {
-    id: 'test-strategy', phase: 'quality', title: 'Test Strategy, Scenario & Test Plan', minutes: 11, xp: 110,
+    id: 'test-strategy', phase: 'quality', title: 'Test Strategy, Scenario & Test Plan', minutes: 11, xp: 110, practiceLanguage: 'gherkin',
     hook: 'İlandaki “test scenario/plan” beklentisi sadece JUnit annotation bilmekten daha geniştir.',
     story: 'Yeni ödeme özelliği için happy path kadar invalid amount, timeout, duplicate request ve authorization senaryolarını da planlamak gerekir.',
     terms: [['test scenario', 'Doğrulanacak kullanıcı/sistem davranışının yüksek seviyeli senaryosu.'], ['test case', 'Input, precondition, adımlar ve expected result içeren somut doğrulama.'], ['test plan', 'Scope, risk, ortam, test türleri ve exit criteria gibi test yaklaşımını tanımlayan plan.'], ['regression test', 'Yeni değişikliğin mevcut çalışan davranışları bozmadığını doğrulayan testler.']],
@@ -959,7 +959,7 @@ const interviewExpansionLessons = [
     question: 'Rollback sonrası yapılacak en iyi iş?', options: ['Nedeni kanıtla doğrulayıp test ve önleyici aksiyon eklemek', 'Grafik düzeldiğine göre incident’ı ders çıkarmadan kapatmak', 'Sadece geliştiriciyi suçlayan bir rapor yazmak'], answer: 0,
   },
   {
-    id: 'git-workflow', phase: 'sdlc', title: 'Git: Branch, Merge, Rebase, Pull Request', minutes: 10, xp: 100,
+    id: 'git-workflow', phase: 'sdlc', title: 'Git: Branch, Merge, Rebase, Pull Request', minutes: 10, xp: 100, practiceLanguage: 'shell',
     hook: 'Git komut ezberi değil; ekip değişiklik geçmişini güvenli birleştirme aracıdır.',
     story: 'Feature branch’te çalış, review için pull request aç, conflict varsa hangi iki değişikliğin çakıştığını anlayıp çöz.',
     terms: [['branch', 'Commit geçmişinde bağımsız ilerleyen isimli referans.'], ['merge', 'İki geliştirme geçmişini bir araya getiren işlem.'], ['rebase', 'Commit’leri başka bir base üzerine yeniden uygulayarak history’yi yeniden yazabilen işlem.'], ['pull request', 'Değişikliği review, discussion ve CI kontrolleriyle ana dala birleştirme önerisi.'], ['merge conflict', 'Git’in iki değişikliği otomatik birleştiremediği ve insan kararı gereken durum.']],
@@ -1069,7 +1069,7 @@ const interviewExpansionLessons = [
     question: 'React state neyi temsil eder?', options: ['Component’in zaman içinde değişebilen render verisini', 'Parent’tan read-only gelen props değerini', 'Component dışında değişmeyen sabit config’i'], answer: 0,
   },
   {
-    id: 'python-basics', phase: 'languages', title: 'Python: Java geliştiricisi için temel farklar', minutes: 9, xp: 80,
+    id: 'python-basics', phase: 'languages', title: 'Python: Java geliştiricisi için temel farklar', minutes: 9, xp: 80, practiceLanguage: 'python',
     hook: 'İlan “Java, React, Spring Boot, Python, SQL, or other” diyor; Python’da derin uzmanlıktan önce temel okuma yeterli.',
     story: 'Aynı filter/map düşüncesi Python’da list comprehension veya generator ile daha kısa yazılabilir. Dil dinamik tipli ama type hint kullanılabilir.',
     terms: [['dynamic typing', 'Değişken adının compile-time’da tek bir statik tipe bağlı olmadığı tip sistemi özelliği.'], ['type hint', 'Python kodunda beklenen tipleri annotation olarak ifade etme mekanizması.'], ['list comprehension', 'Liste üretmek/filtrelemek için kısa declarative syntax.'], ['dict', 'Python’ın key-value mapping veri tipi.']],
