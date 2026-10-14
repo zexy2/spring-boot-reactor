@@ -83,6 +83,7 @@ test('large multiline input supports undo and enforces the draft size limit', as
 
   await editor.fill(draft)
   await expectCode(editor, draft)
+  await expect(page.locator('.code-editor-count')).toContainText(`${draft.length.toLocaleString('tr-TR')} / 20.000`)
   await editor.press('ControlOrMeta+z')
   await expectCode(editor, initialDraft)
   await editor.press('ControlOrMeta+Shift+z')
@@ -90,6 +91,10 @@ test('large multiline input supports undo and enforces the draft size limit', as
 
   await editor.fill('x'.repeat(20001))
   await expectCode(editor, draft)
+  await expect(page.locator('.code-editor-limit-alert')).toContainText('20.000 karakter sınırı')
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).learning['java-class'].codeDraft, SNAPSHOT_KEY)
   expect(saved).toBe(draft)
+  await editor.fill('class NewProduct {}')
+  await expectCode(editor, 'class NewProduct {}')
+  await expect(page.locator('.code-editor-limit-alert')).toHaveCount(0)
 })

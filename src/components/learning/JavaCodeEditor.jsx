@@ -7,11 +7,11 @@ import { history, historyKeymap, indentMore } from '@codemirror/commands'
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 
 // CodeMirror only renders visible lines, even with thousands of blank lines.
-export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, label, helpId, fragment }) {
+export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, onLimitReached, label, helpId, fragment }) {
   const mountRef = useRef(null)
   const viewRef = useRef(null)
-  const callbacks = useRef({ onChange, onVerify, onEscape })
-  callbacks.current = { onChange, onVerify, onEscape }
+  const callbacks = useRef({ onChange, onVerify, onEscape, onLimitReached })
+  callbacks.current = { onChange, onVerify, onEscape, onLimitReached }
 
   useLayoutEffect(() => {
     const insertSpaces = (view) => {
@@ -33,7 +33,12 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, la
       lineNumbers(), history(), drawSelection(), highlightActiveLine(),
       indentUnit.of('  '), java(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      EditorState.changeFilter.of((transaction) => transaction.newDoc.length <= MAX_CODE_DRAFT_LENGTH),
+      EditorState.changeFilter.of((transaction) => {
+        if (transaction.newDoc.length <= MAX_CODE_DRAFT_LENGTH) return true
+        // React updates must happen outside CodeMirror's dispatch.
+        if (transaction.docChanged) queueMicrotask(() => callbacks.current.onLimitReached?.())
+        return false
+      }),
       EditorView.contentAttributes.of({ 'aria-label': label, 'aria-describedby': helpId, 'aria-multiline': 'true', 'data-maxlength': String(MAX_CODE_DRAFT_LENGTH) }),
       placeholder(fragment ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'),
       keymap.of([

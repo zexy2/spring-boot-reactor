@@ -1152,6 +1152,8 @@ body::before {
 .code-editor-shell .cm-editor.cm-focused { outline: 2px solid var(--blue); outline-offset: -2px; }
 .code-editor-shell .cm-placeholder { color: #536b83; }
 .code-scroll-help { display: block; margin: 0; padding: 0 14px 12px; color: #8fa8c0; font: 500 11px/1.5 'IBM Plex Mono', monospace; }
+.code-editor-count { padding: 8px 14px 2px; color: #8fa8c0; font: 500 11px/1.5 'IBM Plex Mono', monospace; text-align: right; }
+.code-editor-limit-alert { margin: 4px 14px 8px; color: var(--signal); font: 600 12px/1.5 'IBM Plex Mono', monospace; }
 .code-workout-guide { min-height: 230px; display: grid; align-content: start; gap: 8px; padding: 18px; }
 .code-workout-guide strong { color: var(--blue); font: 700 10px 'IBM Plex Mono', monospace; letter-spacing: .07em; }
 .code-workout-guide p { margin: 0 0 12px; color: #c3d2e2; font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }

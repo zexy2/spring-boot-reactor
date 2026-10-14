@@ -20,6 +20,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const [checked, setChecked] = useState(false)
   const [checkedRequirements, setCheckedRequirements] = useState(null)
   const [revealed, setRevealed] = useState(false)
+  const [limitReached, setLimitReached] = useState(false)
   const [syntaxResult, setSyntaxResult] = useState(null)
   const verificationId = useRef(0)
   const actionsRef = useRef(null)
@@ -33,6 +34,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     setChecked(false)
     setCheckedRequirements(null)
     setRevealed(false)
+    setLimitReached(false)
     setSyntaxResult(null)
     return () => { verificationId.current += 1 }
   }, [lesson.id, challenge?.editableStarter, challenge?.starter])
@@ -48,6 +50,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     setChecked(false)
     setCheckedRequirements(null)
     setRevealed(false)
+    setLimitReached(false)
     setSyntaxResult(null)
   }, [savedDraft])
 
@@ -69,6 +72,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const displayedPass = passed || (checked && success)
 
   const updateAnswer = (nextAnswer) => {
+    setLimitReached(false)
     verificationId.current += 1
     setAnswer(nextAnswer)
     setChecked(false)
@@ -145,8 +149,10 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
         </div>
         <div><small>{isFragmentExercise ? 'EKSİK İFADE' : 'SENİN KODUN'}</small>
           <Suspense fallback={<div className="code-editor-shell code-editor-loading" role="status">Java editörü yükleniyor…</div>}>
-            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={() => actionsRef.current?.querySelector("button:not(:disabled)")?.focus()} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
+            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={() => actionsRef.current?.querySelector("button:not(:disabled)")?.focus()} onLimitReached={() => setLimitReached(true)} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
           </Suspense>
+          <div className="code-editor-count" aria-label="Kod uzunluğu">{answer.length.toLocaleString('tr-TR')} / {MAX_CODE_DRAFT_LENGTH.toLocaleString('tr-TR')} karakter</div>
+          {limitReached && <p className="code-editor-limit-alert" role="status">20.000 karakter sınırı aşıldı. Devam etmek için kodu kısalt.</p>}
           <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Ctrl/Cmd+Z: geri al · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
         </div>
       </div>
