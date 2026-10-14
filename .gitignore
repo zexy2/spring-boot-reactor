@@ -3,6 +3,8 @@ dist
 .DS_Store
 output/
 .playwright-cli/
+playwright-report/
+test-results/
 .codex-context/
 graphify-out/
 .codex-audit.mjs

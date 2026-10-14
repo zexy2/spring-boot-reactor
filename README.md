@@ -99,6 +99,7 @@ Terminalin gösterdiği yerel adrese (genellikle `http://localhost:5173`) git. C
 | `npm test` | Projenin Node.js testlerini çalıştırır. |
 | `npm run build` | Üretim dosyalarını `dist/` dizinine oluşturur. |
 | `npm run preview` | Oluşturulmuş üretim çıktısını yerel olarak önizler. |
+| `npm run test:e2e` | Derlenmiş GitHub Pages sürümünü masaüstü ve mobil Chromium'da sınar. Öncesinde `DEPLOY_GITHUB_PAGES=true npm run build` çalıştır. İlk kullanımda `npx playwright install chromium` gerekir. |
 
 <a id="architecture"></a>
 ## Nasıl çalışıyor?
