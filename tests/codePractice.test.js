@@ -17,6 +17,26 @@ test('normalizeCodeAnswer removes comments, whitespace and normalizes Turkish ca
   )
 })
 
+test('comment markers inside Java string and character literals stay intact', () => {
+  assert.equal(normalizeCodeAnswer('String url = "https://example.org/a/*b*/"; // remove\nchar slash = \'/\';'),
+    'stringurl="https://example.org/a/*b*/";charslash=\'/\';')
+
+  const exercise = codePracticeLibrary['java-class']
+  const answerWithUrl = exercise.solution.replace('"Telefon"', '"https://example.org/catalog"')
+  assert.equal(evaluateCodeRequirements(answerWithUrl, exercise).staticSuccess, true)
+})
+
+test('TODO text inside Java literals is valid, but real TODO comments remain unfinished', () => {
+  const exercise = codePracticeLibrary['methods-constructor']
+  for (const literal of ['"TODO"', '"// TODO"', '"/* TODO */"', '"""\nTODO\n"""']) {
+    const answer = `${exercise.solution}\nclass Notes { String note = ${literal}; }`
+    assert.equal(evaluateCodeRequirements(answer, exercise).staticSuccess, true, `${literal}: literal is not a TODO marker`)
+  }
+  for (const comment of ['// TODO: unfinished', '/* TODO: unfinished */']) {
+    assert.equal(evaluateCodeRequirements(`${exercise.solution}\n${comment}`, exercise).staticSuccess, false)
+  }
+})
+
 test('buildCodePractice returns named custom challenge before generated fallback', () => {
   const challenge = buildCodePractice({
     id: 'annotations',

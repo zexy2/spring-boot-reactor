@@ -359,10 +359,82 @@ class CardPayment extends Payment {
   ...springCodeChallenges,
 }
 
+// Strip comments without mistaking URL and comment-like text inside Java literals for comments.
+// Preserve whitespace/newlines so adjacent identifiers never merge after removal.
+function splitCodeComments(value) {
+  const source = String(value)
+  let code = ''
+  let comments = ''
+  let unquotedCode = ''
+  let mode = 'code'
+  let index = 0
+
+  while (index < source.length) {
+    const char = source[index]
+    const next = source[index + 1]
+    if (mode === 'line-comment' || mode === 'block-comment') {
+      if (mode === 'line-comment' && char === '\n') {
+        code += '\n'
+        unquotedCode += '\n'
+        mode = 'code'
+        index += 1
+      } else if (mode === 'block-comment' && char === '*' && next === '/') {
+        code += '  '
+        unquotedCode += '  '
+        index += 2
+        mode = 'code'
+      } else {
+        comments += char
+        code += char === '\n' ? '\n' : ' '
+        unquotedCode += char === '\n' ? '\n' : ' '
+        index += 1
+      }
+      continue
+    }
+
+    if (mode === 'string' || mode === 'character' || mode === 'text-block') {
+      if (char === '\\' && index + 1 < source.length) {
+        code += source.slice(index, index + 2)
+        unquotedCode += '  '
+        index += 2
+      } else if (mode === 'text-block' && source.startsWith('"""', index)) {
+        code += '"""'
+        unquotedCode += '   '
+        index += 3
+        mode = 'code'
+      } else {
+        code += char
+        unquotedCode += char === '\n' ? '\n' : ' '
+        if ((mode === 'string' && char === '"') || (mode === 'character' && char === "'")) mode = 'code'
+        index += 1
+      }
+      continue
+    }
+
+    if (char === '/' && (next === '/' || next === '*')) {
+      code += '  '
+      unquotedCode += '  '
+      index += 2
+      mode = next === '/' ? 'line-comment' : 'block-comment'
+    } else if (source.startsWith('"""', index)) {
+      code += '"""'
+      unquotedCode += '   '
+      index += 3
+      mode = 'text-block'
+    } else {
+      code += char
+      unquotedCode += char === '"' || char === "'" ? ' ' : char
+      if (char === '"') mode = 'string'
+      if (char === "'") mode = 'character'
+      index += 1
+    }
+  }
+
+  return { code, comments, unquotedCode }
+}
+
 export function normalizeCodeAnswer(value) {
-  return String(value)
-    .replace(/\/\/.*$/gm, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
+  return splitCodeComments(value).code
     .replace(/\s+/g, '')
     .toLocaleLowerCase('tr-TR')
 }
@@ -398,13 +470,13 @@ export function evaluateCodeRequirements(answer, challenge) {
   if (!challenge) return { checks: [], generatedMatch: false, staticSuccess: false }
 
   const normalized = normalizeCodeAnswer(answer)
-  const withoutComments = String(answer).replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  const { code: withoutComments, comments, unquotedCode } = splitCodeComments(answer)
   const checks = (challenge.requirements ?? []).map(([label, needle]) => ({
     label,
     ok: needle instanceof RegExp ? needle.test(withoutComments) : normalized.includes(normalizeCodeAnswer(needle)),
   }))
   if (challenge.editableStarter) {
-    checks.push({ label: 'TODO satırları tamamlandı', ok: !/\bTODO\b/i.test(String(answer)) })
+    checks.push({ label: 'TODO satırları tamamlandı', ok: !/\bTODO\b/i.test(unquotedCode + comments) })
   }
   const generatedMatch = challenge.expected
     ? normalized.includes(normalizeCodeAnswer(challenge.expected))
