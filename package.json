@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "pretest:e2e": "node scripts/build-e2e.mjs",
     "test:e2e": "playwright test",
     "test": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"./tests/extension-loader.mjs\", pathToFileURL(\"./\"));' --test tests/*.test.js"
   },

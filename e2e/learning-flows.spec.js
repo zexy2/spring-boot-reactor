@@ -143,6 +143,35 @@ test('unfinished Java code draft autosaves and returns after reload', async ({ p
   await expect(editor).toHaveAttribute('maxlength', '20000')
 })
 
+test('Java draft survives a reload immediately after typing', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  const draft = 'class Product {\n  String name;\n  // Kaydetmeden hemen yenile\n}'
+  await editor.fill(draft)
+  expect((await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(draft)
+  await page.reload()
+  await openLearningPhase(page, 1)
+
+  await expect(editor).toHaveValue(draft)
+  expect((await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(draft)
+})
+
+test('Java draft survives immediately leaving and reopening the lesson', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  const draft = 'class Product {\n  int stock = 5;\n}'
+  await editor.fill(draft)
+  await page.goto(`?lesson=${lessonId}`)
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  await expect(editor).toHaveValue(draft)
+})
+
 test('JSON backup can be downloaded, imported and retained after refresh', async ({ page }) => {
   await page.goto('./')
   const backup = await openBackup(page)
@@ -202,6 +231,29 @@ test('another tab saving progress locks the stale tab until refresh', async ({ p
   await page.reload()
   await expect(page.getByRole('alert')).toHaveCount(0)
   await expect.poll(async () => (await storedProgress(page))?.learning[lessonId]?.attempts).toBe(7)
+})
+
+test('a stale Java editor cannot overwrite newer progress from another tab', async ({ page, context }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+  await expect.poll(async () => Boolean(await storedProgress(page))).toBe(true)
+
+  const otherTab = await context.newPage()
+  await otherTab.goto(`?lesson=${lessonId}`)
+  const backup = await openBackup(otherTab)
+  const updated = await storedProgress(otherTab)
+  updated.learning[lessonId] = { attempts: 13 }
+  await importBackup(otherTab, backup, updated)
+
+  await expect(page.getByRole('alert')).toContainText('Başka bir sekme ilerlemeni değiştirdi')
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  await editor.fill('class Product { int stock; }')
+  expect((await storedProgress(page)).learning[lessonId].attempts).toBe(13)
+
+  await page.reload()
+  await openLearningPhase(page, 1)
+  expect((await storedProgress(page)).learning[lessonId].attempts).toBe(13)
+  await expect(editor).not.toHaveValue('class Product { int stock; }')
 })
 
 test('small mobile viewports avoid page-wide horizontal overflow', async ({ page }, testInfo) => {

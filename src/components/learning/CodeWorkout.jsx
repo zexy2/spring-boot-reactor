@@ -30,16 +30,6 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const [syntaxResult, setSyntaxResult] = useState(null)
   const verificationId = useRef(0)
   const gutterRef = useRef(null)
-  const pendingDraft = useRef(null)
-  const draftTimer = useRef(null)
-
-  useEffect(() => () => {
-    window.clearTimeout(draftTimer.current)
-    if (pendingDraft.current) {
-      onDraftChange?.(pendingDraft.current.lessonId, pendingDraft.current.value)
-      pendingDraft.current = null
-    }
-  }, [lesson.id, onDraftChange])
 
   useEffect(() => {
     verificationId.current += 1
@@ -63,15 +53,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
     setAnswer(nextAnswer)
     setChecked(false)
     setSyntaxResult(null)
-    if (nextAnswer.length <= MAX_CODE_DRAFT_LENGTH && onDraftChange) {
-      window.clearTimeout(draftTimer.current)
-      pendingDraft.current = { lessonId: lesson.id, value: nextAnswer }
-      draftTimer.current = window.setTimeout(() => {
-        const draft = pendingDraft.current
-        pendingDraft.current = null
-        if (draft) onDraftChange(draft.lessonId, draft.value)
-      }, 350)
-    }
+    if (nextAnswer.length <= MAX_CODE_DRAFT_LENGTH) onDraftChange?.(lesson.id, nextAnswer)
   }
 
   const verify = async () => {

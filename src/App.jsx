@@ -3182,13 +3182,29 @@ function App() {
     })
   }
 
-  const recordCodeDraft = useCallback((lessonId, draft) => {
-    setLearning((state) => {
-      const previous = state[lessonId] ?? {}
-      if (previous.codeDraft === draft) return state
-      return { ...state, [lessonId]: { ...previous, codeDraft: draft, codeDraftUpdatedAt: Date.now() } }
-    })
-  }, [])
+  const flushCodeDraft = useCallback((lessonId, draft) => {
+    const { completed: currentCompleted, learning: currentLearning } = latestProgress.current
+    const previous = currentLearning[lessonId] ?? {}
+    if (previous.codeDraft === draft) return
+    const updatedLearning = {
+      ...currentLearning,
+      [lessonId]: { ...previous, codeDraft: draft, codeDraftUpdatedAt: Date.now() },
+    }
+    latestProgress.current = { completed: currentCompleted, learning: updatedLearning }
+    setLearning(updatedLearning)
+    if (recoveryIssue || storageConflict) return
+    try {
+      // Persist each edit synchronously so immediate reload cannot drop the last keystroke.
+      // Optimistic concurrency still prevents overwriting another tab's changes.
+      const snapshot = saveProgressStorage(window.localStorage, currentCompleted, updatedLearning, lessons, { expectedRaw: savedSnapshot.current })
+      savedSnapshot.current = JSON.stringify(snapshot)
+      savedProgress.current = { completed: currentCompleted, learning: updatedLearning }
+      setStorageWarning(false)
+    } catch (error) {
+      if (error instanceof ProgressStorageConflictError) setStorageConflict(true)
+      else setStorageWarning(true)
+    }
+  }, [recoveryIssue, storageConflict])
 
   const saveDebugAttempt = (lessonId, attempt) => {
     setLearning((state) => ({
@@ -3411,7 +3427,7 @@ function App() {
             <button className="lesson-share" type="button" onClick={copyLessonLink} title={`${activeLesson.title} dersinin bağlantısını kopyala`}>Bağlantıyı kopyala ↗</button>
           </div>
           {copyStatus && <p className="lesson-share-status" role="status" aria-live="polite">{copyStatus} {copyStatus.startsWith('Kopyalama') && <a href={lessonUrl(window.location.href, activeId)} target="_blank" rel="noopener noreferrer">Ders bağlantısını aç ↗</a>}</p>}
-          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={recordCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
+          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={flushCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
           {reviewDueCount === 0 && <RecallDeck completed={completedSet} activeId={activeId} learning={learning} onReview={recordReview} />}
           <footer>
             <strong>{activeLesson.points?.[0] ?? activeLesson.hook}</strong>
