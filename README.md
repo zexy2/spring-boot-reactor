@@ -60,6 +60,8 @@ flowchart LR
 
 Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıcı içi alıştırmalardır**. Kod boşluğu sorularında yalnızca eksik ifade yazılır; doğru yazım kontrol edilir ve hatalı denemelerde geri bildirim sunulur. Daha kapsamlı Java görevlerinde gereksinim taraması ve uygun olduğunda sözdizimi ayrıştırması yapılır. Bu kontroller **Java derlemesi, tür denetimi veya davranış testi değildir**; canlı mikroservis ağı ya da Kubernetes kümesi de çalıştırılmaz.
 
+Geliştirme sırasında `npm run test:java` komutu, **uygulamaya gömülü 10 Java Core örnek çözümünü** JDK 21 ile gerçekten derleyip sınırlı davranış kontrollerinden geçirir. GitHub Actions bu kalite kontrolünü de çalıştırır. Bu süreç öğrencinin tarayıcıya yazdığı kodu derlemez veya çalıştırmaz; örnek çözümlerin hatalı yayımlanma riskini azaltır.
+
 <a id="curriculum"></a>
 ## 14 aşamalı öğrenme yolu
 

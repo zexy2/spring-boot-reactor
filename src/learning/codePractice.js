@@ -172,6 +172,18 @@ class Directory {
       ['Map ve HashMap', /\bMap\s*<\s*Long\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/],
       ['Key ekleme ve okuma', /\busers\.put\s*\(\s*42L\s*,\s*"Ada"\s*\)\s*;[\s\S]*?\bString\s+name\s*=\s*users\.get\s*\(\s*42L\s*\)/],
     ],
+    scopeRules: [{
+      label: 'Koleksiyon işlemleri Directory.example() içinde',
+      path: [/\bclass\s+Directory\s*\{/, /\bvoid\s+example\s*\(\s*\)\s*\{/],
+      patterns: [
+        /\bList\s*<\s*String\s*>\s+order\s*=\s*new\s+ArrayList\s*<\s*>\s*\(\s*\)/,
+        /\border\.add\s*\(\s*"Kalem"\s*\)/,
+        /\bSet\s*<\s*String\s*>\s+roles\s*=\s*new\s+HashSet\s*<\s*>\s*\(\s*\)/,
+        /\broles\.add\s*\(\s*"ADMIN"\s*\)/,
+        /\bMap\s*<\s*Long\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/,
+        /\busers\.put\s*\(\s*42L\s*,\s*"Ada"\s*\)\s*;[\s\S]*?\bString\s+name\s*=\s*users\.get\s*\(\s*42L\s*\)/,
+      ],
+    }],
     hint: '`List` tekrar kabul eder, `Set` aynı elemanı tek tutar, `Map` key üzerinden value bulur.',
     expectedBehavior: 'order bir satır, roles tek rol, users ise 42L için "Ada" içerir.',
     reviewQuestion: 'Bir kullanıcıya aynı rol iki kez eklenirse Set ile List arasında hangi fark oluşur?',
@@ -208,6 +220,15 @@ class UserIndex {
       ['Yeni key ile put', /\busers\.put\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*,\s*"Ada"\s*\)/],
       ['Farklı nesneyle get', /\bString\s+found\s*=\s*users\.get\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*\)/],
     ],
+    scopeRules: [{
+      label: 'HashMap lookup UserIndex.lookup() içinde',
+      path: [/\bclass\s+UserIndex\s*\{/, /\bvoid\s+lookup\s*\(\s*\)\s*\{/],
+      patterns: [
+        /\bMap\s*<\s*UserKey\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/,
+        /\busers\.put\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*,\s*"Ada"\s*\)/,
+        /\bString\s+found\s*=\s*users\.get\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*\)/,
+      ],
+    }],
     hint: 'Record, bileşenlerinden `equals` ve `hashCode` üretir. İki ayrı UserKey(42) mantıksal olarak eşittir.',
     expectedBehavior: 'Farklı nesne kimliğine rağmen found değişkeni "Ada" olur.',
     reviewQuestion: 'HashMap key olarak değişebilir bir alan kullansaydın ne bozulabilirdi?',
@@ -238,6 +259,18 @@ class Inventory {
       ['Unchecked exception sınıfı', /\bclass\s+OutOfStockException\s+extends\s+RuntimeException\s*\{/],
       ['Mesajı üst sınıfa iletme', /\bOutOfStockException\s*\(\s*String\s+message\s*\)\s*\{\s*super\s*\(\s*message\s*\)\s*;/],
       ['Stok kontrolü ve throw', /\bif\s*\(\s*requested\s*>\s*stock\s*\)\s*\{\s*throw\s+new\s+OutOfStockException\s*\(\s*"[^"]+"\s*\)\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Exception mesajı kendi constructor’ında',
+        path: [/\bclass\s+OutOfStockException\s+extends\s+RuntimeException\s*\{/, /\bOutOfStockException\s*\(\s*String\s+message\s*\)\s*\{/],
+        patterns: [/\bsuper\s*\(\s*message\s*\)\s*;/],
+      },
+      {
+        label: 'Stok kontrolü Inventory.reserve() içinde',
+        path: [/\bclass\s+Inventory\s*\{/, /\bvoid\s+reserve\s*\(\s*int\s+stock\s*,\s*int\s+requested\s*\)\s*\{/],
+        patterns: [/\bif\s*\(\s*requested\s*>\s*stock\s*\)\s*\{\s*throw\s+new\s+OutOfStockException\s*\(\s*"[^"]+"\s*\)\s*;/],
+      },
     ],
     hint: '`throw` hatayı o anda fırlatır. `extends RuntimeException` checked `throws` bildirimi zorunluluğunu kaldırır.',
     expectedBehavior: 'reserve(2, 3) exception fırlatır; reserve(4, 1) normal tamamlanır.',
@@ -276,6 +309,16 @@ class Catalog {
       ['Ürün adını çıkarma', /\.map\s*\(\s*(?:p\s*->\s*p\.name\s*\(\s*\)|Product::name)\s*\)/],
       ['Sıralama ve terminal işlem', /\.sorted\s*\(\s*\)\s*\.toList\s*\(\s*\)/],
     ],
+    scopeRules: [{
+      label: 'Stream zinciri Catalog.activeNames() içinde',
+      path: [/\bclass\s+Catalog\s*\{/, /\bList\s*<\s*String\s*>\s+activeNames\s*\(\s*List\s*<\s*Product\s*>\s+products\s*\)\s*\{/],
+      patterns: [
+        /\breturn\s+products\.stream\s*\(\s*\)/,
+        /\.filter\s*\(\s*(?:p\s*->\s*p\.active\s*\(\s*\)|Product::active)\s*\)/,
+        /\.map\s*\(\s*(?:p\s*->\s*p\.name\s*\(\s*\)|Product::name)\s*\)/,
+        /\.sorted\s*\(\s*\)\s*\.toList\s*\(\s*\)/,
+      ],
+    }],
     hint: 'filter elemanı seçer; map onu dönüştürür; toList terminal işlemdir.',
     expectedBehavior: 'Ürünler içinden active=true olanların isimlerini alfabetik List olarak döndürür.',
     reviewQuestion: 'Sondaki toList() kaldırılırsa stream pipeline ne zaman çalışır?',
@@ -305,6 +348,18 @@ class Catalog {
     requirements: [
       ['Yazmaya monitor kilidi', /\bsynchronized\s+void\s+increment\s*\(\s*\)\s*\{\s*value\s*\+\+\s*;/],
       ['Okumaya aynı monitor kilidi', /\bsynchronized\s+int\s+getValue\s*\(\s*\)\s*\{\s*return\s+value\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Senkronize yazma Counter.increment() içinde',
+        path: [/\bclass\s+Counter\s*\{/, /\bsynchronized\s+void\s+increment\s*\(\s*\)\s*\{/],
+        patterns: [/\bvalue\s*\+\+\s*;/],
+      },
+      {
+        label: 'Senkronize okuma Counter.getValue() içinde',
+        path: [/\bclass\s+Counter\s*\{/, /\bsynchronized\s+int\s+getValue\s*\(\s*\)\s*\{/],
+        patterns: [/\breturn\s+value\s*;/],
+      },
     ],
     hint: '`value++` tek atomik adım değildir. İki instance method da aynı Counter nesnesinin monitor kilidini kullanır.',
     expectedBehavior: 'Aynı Counter nesnesine farklı thread’lerden erişirken kritik okuma/yazma serialize edilir.',
@@ -347,6 +402,24 @@ class OrderService {
       ['Constructor injection', /\bOrderService\s*\(\s*Notifier\s+notifier\s*\)\s*\{\s*this\.notifier\s*=\s*notifier\s*;/],
       ['Abstraction üzerinden çağrı', /\bvoid\s+notifyCustomer\s*\(\s*String\s+message\s*\)\s*\{\s*notifier\.send\s*\(\s*message\s*\)\s*;/],
     ],
+    scopeRules: [
+      {
+        label: 'Notifier field doğrudan OrderService içinde',
+        path: [/\bclass\s+OrderService\s*\{/],
+        directMembersOnly: true,
+        patterns: [/\bprivate\s+final\s+Notifier\s+notifier\s*;/],
+      },
+      {
+        label: 'Notifier ataması OrderService constructor içinde',
+        path: [/\bclass\s+OrderService\s*\{/, /\bOrderService\s*\(\s*Notifier\s+notifier\s*\)\s*\{/],
+        patterns: [/\bthis\.notifier\s*=\s*notifier\s*;/],
+      },
+      {
+        label: 'Bildirim OrderService.notifyCustomer() içinde',
+        path: [/\bclass\s+OrderService\s*\{/, /\bvoid\s+notifyCustomer\s*\(\s*String\s+message\s*\)\s*\{/],
+        patterns: [/\bnotifier\.send\s*\(\s*message\s*\)\s*;/],
+      },
+    ],
     hint: 'OrderService nesneyi kendi üretmez. Dışarıdan Notifier alır; e-posta yerine SMS vermek kolaylaşır.',
     expectedBehavior: 'Constructor’a verilen herhangi bir Notifier implementation’ı notifyCustomer ile çağrılır.',
     reviewQuestion: 'OrderService içinde new EmailNotifier() yazmak testleri ve değişimi neden zorlaştırır?',
@@ -388,6 +461,23 @@ class CardPayment extends Payment {
       ['Abstract davranış', /\babstract\s+boolean\s+pay\s*\(\s*\)\s*;/],
       ['Alt sınıf ve super', /\bclass\s+CardPayment\s+extends\s+Payment\s*\{\s*CardPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{\s*super\s*\(\s*amount\s*\)\s*;/],
       ['Override edilen iş kuralı', /@Override\s+boolean\s+pay\s*\(\s*\)\s*\{\s*return\s+amount\.signum\s*\(\s*\)\s*>\s*0\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Amount ataması Payment constructor içinde',
+        path: [/\babstract\s+class\s+Payment\s*\{/, /\bPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{/],
+        patterns: [/\bthis\.amount\s*=\s*amount\s*;/],
+      },
+      {
+        label: 'super(amount) CardPayment constructor içinde',
+        path: [/\bclass\s+CardPayment\s+extends\s+Payment\s*\{/, /\bCardPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{/],
+        patterns: [/\bsuper\s*\(\s*amount\s*\)\s*;/],
+      },
+      {
+        label: 'Ödeme kontrolü CardPayment.pay() içinde',
+        path: [/\bclass\s+CardPayment\s+extends\s+Payment\s*\{/, /\bboolean\s+pay\s*\(\s*\)\s*\{/],
+        patterns: [/\breturn\s+amount\.signum\s*\(\s*\)\s*>\s*0\s*;/],
+      },
     ],
     hint: 'abstract class gövde ve state taşıyabilir. Alt sınıf constructor’ı super ile üst yapıyı kurar.',
     expectedBehavior: 'Pozitif BigDecimal tutarda pay() true, sıfırda false döner.',

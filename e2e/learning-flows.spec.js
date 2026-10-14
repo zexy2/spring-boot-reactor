@@ -239,6 +239,22 @@ test('code editor requires Product fields in Product rather than a nested class'
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 })
 
+test('collections challenge rejects valid code copied into a different class', async ({ page }) => {
+  await page.goto('?lesson=java-collections')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  const wrongClass = codePracticeLibrary['java-collections'].solution.replace(
+    'class Directory {', 'class OtherDirectory {',
+  ) + '\nclass Directory { void example() {} }'
+  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(wrongClass)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+
+  await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
+  await expect(workout.locator('.code-requirements')).toContainText('× Koleksiyon işlemleri Directory.example() içinde')
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
+})
+
 test('generated code gap accepts only the missing expression', async ({ page }) => {
   await page.goto('?lesson=spring-vs-boot')
   await openLearningPhase(page, 1)

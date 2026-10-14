@@ -120,6 +120,51 @@ test('constructor and interface rules reject code placed in unrelated methods', 
   assert.equal(evaluateCodeRequirements(misplacedPay, interfaceChallenge).staticSuccess, false)
 })
 
+test('Java Core code placed in a different class cannot pass the intended method scope', async () => {
+  const { parse } = await import('java-parser')
+  const relocated = [
+    ['java-collections',
+      (source) => source.replace('class Directory {', 'class OtherDirectory {') + '\nclass Directory { void example() {} }',
+      'Koleksiyon işlemleri Directory.example() içinde'],
+    ['java-hashmap',
+      (source) => source.replace('class UserIndex {', 'class OtherIndex {') + '\nclass UserIndex { void lookup() {} }',
+      'HashMap lookup UserIndex.lookup() içinde'],
+    ['java-exceptions',
+      (source) => source.replace('class Inventory {', 'class OtherInventory {') + '\nclass Inventory { void reserve(int stock, int requested) {} }',
+      'Stok kontrolü Inventory.reserve() içinde'],
+    ['java-streams',
+      (source) => source.replace('class Catalog {', 'class OtherCatalog {')
+        + '\nclass Catalog { List<String> activeNames(List<Product> products) { return List.of(); } }',
+      'Stream zinciri Catalog.activeNames() içinde'],
+    ['java-concurrency',
+      (source) => source.replace('class Counter {', 'class OtherCounter {')
+        + '\nclass Counter { synchronized void increment() {} synchronized int getValue() { return 0; } }',
+      'Senkronize yazma Counter.increment() içinde'],
+  ]
+
+  for (const [id, move, requirement] of relocated) {
+    const challenge = codePracticeLibrary[id]
+    const answer = move(challenge.solution)
+    assert.doesNotThrow(() => parse(answer), `${id}: valid Java grammar`)
+    const result = evaluateCodeRequirements(answer, challenge)
+    assert.equal(result.staticSuccess, false, `${id}: wrong method/class must fail`)
+    assert.equal(result.checks.find(({ label }) => label === requirement)?.ok, false, `${id}: scope feedback`)
+  }
+})
+
+test('Java OOP payment rejects a passing method only in another subclass', async () => {
+  const challenge = codePracticeLibrary['java-oop']
+  const answer = challenge.solution.replace(
+    'boolean pay() { return amount.signum() > 0; }',
+    'boolean pay() { return false; }',
+  ) + '\nclass OtherPayment extends Payment { OtherPayment(BigDecimal amount) { super(amount); } @Override boolean pay() { return amount.signum() > 0; } }'
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(answer))
+  const result = evaluateCodeRequirements(answer, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label === 'Ödeme kontrolü CardPayment.pay() içinde')?.ok, false)
+})
+
 test('requirements with exact Java string values still accept their real literals', () => {
   for (const id of ['methods-constructor', 'java-collections', 'java-hashmap', 'java-exceptions']) {
     const challenge = codePracticeLibrary[id]
