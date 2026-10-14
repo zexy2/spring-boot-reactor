@@ -53,6 +53,56 @@ test('multi-character input replaces a DOM selection before CodeMirror observes 
   }
 })
 
+test('visible partial DOM selection wins over a stale nonempty CodeMirror selection', async ({ page }) => {
+  const editor = await openEditor(page)
+  await editor.fill('class Demo {}')
+  await expectCode(editor, 'class Demo {}')
+  const details = await editor.evaluate((content) => {
+    const view = content.closest('.cm-editor')
+    // Old editor selection points at "Demo"; the browser has just selected "class".
+    view.__selectCodeRange(6, 10)
+    const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
+    let node
+    while ((node = walker.nextNode()) && !node.textContent.includes('class')) {}
+    if (!node) throw new Error('Expected rendered class token')
+    const from = node.textContent.indexOf('class')
+    const range = document.createRange()
+    range.setStart(node, from)
+    range.setEnd(node, from + 5)
+    const domSelection = window.getSelection()
+    domSelection.removeAllRanges()
+    domSelection.addRange(range)
+    const domText = range.toString()
+    const event = new InputEvent('beforeinput', {
+      bubbles: true, cancelable: true, inputType: 'insertText', data: 'public',
+    })
+    content.dispatchEvent(event)
+    return { prevented: event.defaultPrevented, domText }
+  })
+  expect(details).toEqual({ prevented: true, domText: 'class' })
+  await expectCode(editor, 'public Demo {}')
+  await editor.press('ControlOrMeta+z')
+  await expectCode(editor, 'class Demo {}')
+})
+
+test('composition input remains owned by CodeMirror even if insertText reports not composing', async ({ page }) => {
+  const editor = await openEditor(page)
+  const details = await editor.evaluate((content) => {
+    content.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' }))
+    const input = new InputEvent('beforeinput', {
+      bubbles: true, cancelable: true, inputType: 'insertText', data: '日本語', isComposing: false,
+    })
+    content.dispatchEvent(input)
+    content.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '日本語' }))
+    const afterComposition = new InputEvent('beforeinput', {
+      bubbles: true, cancelable: true, inputType: 'insertText', data: 'class',
+    })
+    content.dispatchEvent(afterComposition)
+    return { prevented: input.defaultPrevented, afterCompositionPrevented: afterComposition.defaultPrevented }
+  })
+  expect(details).toEqual({ prevented: false, afterCompositionPrevented: true })
+})
+
 test('long Java drafts immediately preserve each keystroke and survive reload', async ({ page }) => {
   const editor = await openEditor(page)
   for (const length of [5000, 19000]) {

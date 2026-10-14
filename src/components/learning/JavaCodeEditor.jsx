@@ -62,11 +62,16 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
       event.stopPropagation()
       callbacks.current.onVerify()
     }
+    let compositionActive = false
+    const onCompositionStart = () => { compositionActive = true }
+    const onCompositionEnd = () => { compositionActive = false }
     const onMultiCharacterInsert = (event) => {
       // Browser-driven multi-character insertions may arrive before CodeMirror
       // sees a changed DOM selection. Large inserts also need to skip building
       // thousands of editable nodes before CodeMirror virtualizes the document.
-      if (event.inputType !== 'insertText' || event.isComposing || !event.cancelable ||
+      // Some input methods emit insertText with isComposing=false even while
+      // composition is active. Let CodeMirror manage all composition edits.
+      if (compositionActive || event.inputType !== 'insertText' || event.isComposing || !event.cancelable ||
           typeof event.data !== 'string' || event.data.length < 2) return
       event.preventDefault()
       event.stopImmediatePropagation()
@@ -79,14 +84,20 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
         const anchor = view.posAtDOM(selected.anchorNode, selected.anchorOffset)
         const head = view.posAtDOM(selected.focusNode, selected.focusOffset)
         const range = view.state.selection.main
-        if (anchor !== head && (range.empty ||
+        const stateSelectionVisible = range.from >= view.viewport.from && range.to <= view.viewport.to
+        if (anchor !== head && (range.empty || stateSelectionVisible ||
             (Math.min(anchor, head) === 0 && Math.max(anchor, head) === view.state.doc.length))) {
+          // A fresh visible DOM selection can be ahead of CodeMirror's cached
+          // selection. Keep CodeMirror's range when it spans virtualized lines.
           view.dispatch({ selection: { anchor, head } })
         }
       }
       view.dispatch(view.state.replaceSelection(event.data), { scrollIntoView: true, userEvent: 'input' })
     }
     view.contentDOM.addEventListener('keydown', onShortcut, true)
+    view.contentDOM.addEventListener('compositionstart', onCompositionStart, true)
+    view.contentDOM.addEventListener('compositionend', onCompositionEnd, true)
+    view.contentDOM.addEventListener('blur', onCompositionEnd, true)
     view.contentDOM.addEventListener('beforeinput', onMultiCharacterInsert, true)
     viewRef.current = { view, makeState }
     // Read-only E2E diagnostic: includes offscreen document content.
@@ -95,6 +106,9 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
     view.dom.__codeSelection = () => [view.state.selection.main.from, view.state.selection.main.to]
     return () => {
       view.contentDOM.removeEventListener('keydown', onShortcut, true)
+      view.contentDOM.removeEventListener('compositionstart', onCompositionStart, true)
+      view.contentDOM.removeEventListener('compositionend', onCompositionEnd, true)
+      view.contentDOM.removeEventListener('blur', onCompositionEnd, true)
       view.contentDOM.removeEventListener('beforeinput', onMultiCharacterInsert, true)
       viewRef.current = null
       view.destroy()
