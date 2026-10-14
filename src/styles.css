@@ -1169,6 +1169,7 @@ body::before {
 .code-workout-feedback.bad { border-color: var(--danger); background: rgba(255,114,136,.045); }
 .code-workout-feedback span { color: var(--muted); }
 .code-workout-actions { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.code-workout-actions:focus { outline: 2px solid var(--signal); outline-offset: 3px; }
 .code-workout-actions .complete-button { margin-top: 0; }
 .code-workout-actions .reveal { margin: 0; }
 .code-solution { margin: 12px 0 0; min-height: 0; border: 1px solid rgba(110,231,216,.28); background: #06101a; }

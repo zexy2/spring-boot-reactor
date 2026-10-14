@@ -191,6 +191,7 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   await expect(workout.getByRole('button', { name: 'Kodu kontrol et' })).toBeDisabled()
   await editor.press('Escape')
   await expect(workout.getByRole('group', { name: 'Kod çalışması eylemleri' })).toBeFocused()
+  await expect(workout.getByRole('group', { name: 'Kod çalışması eylemleri' })).toHaveCSS('outline-style', 'solid')
   await expect(workout.getByRole('button', { name: 'Örnek çözümü göster' })).not.toBeFocused()
   await editor.focus()
 
@@ -631,5 +632,29 @@ test('small mobile viewports avoid page-wide horizontal overflow', async ({ page
     await expect(page.getByRole('main')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow, `Unexpected horizontal overflow at ${width}px`).toBeLessThanOrEqual(1)
+  }
+})
+
+
+test('mobile code editor scrolls long code internally without widening the lesson', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile editor regression')
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: 780 })
+    await page.goto('?lesson=java-class')
+    await openLearningPhase(page, 1)
+    const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+    const draft = `class Example { String payload = "${'a'.repeat(1500)}"; }`
+    await editor.fill(draft)
+    await expectCode(editor, draft)
+    const bounds = await page.evaluate(() => {
+      const scroller = document.querySelector('.code-workout .cm-scroller')
+      return {
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        editorOverflow: scroller.scrollWidth - scroller.clientWidth,
+      }
+    })
+    expect(bounds.pageOverflow, `Lesson overflow at ${width}px`).toBeLessThanOrEqual(1)
+    expect(bounds.editorOverflow, `Long code needs internal scroll at ${width}px`).toBeGreaterThan(0)
+    await expect(page.locator('.code-workout').getByRole('button', { name: 'Kodu kontrol et' })).toBeVisible()
   }
 })

@@ -18,6 +18,41 @@ async function openEditor(page) {
   return editor
 }
 
+test('multi-character input replaces a DOM selection before CodeMirror observes it', async ({ page }) => {
+  const editor = await openEditor(page)
+  const initialDraft = await codeValue(editor)
+  const cases = [
+    { draft: 'class Replacement { int count = 1; }', selection: [0, 0] },
+    { draft: 'class Replacement { int count = 2; }', selection: [5, 10] },
+    { draft: `class Replacement {\n${'  int count = 1;\n'.repeat(100)}}`, selection: [0, 0] },
+  ]
+  for (const { draft, selection: codeSelection } of cases) {
+    const eventDetails = await editor.evaluate((content, { replacement, codeSelection: rangeInCode }) => {
+      const view = content.closest('.cm-editor')
+      view.__selectCodeRange(...rangeInCode)
+      const range = document.createRange()
+      range.selectNodeContents(content)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      const previousSelection = view.__codeSelection()
+      const selectedText = range.toString()
+      const event = new InputEvent('beforeinput', {
+        bubbles: true, cancelable: true, inputType: 'insertText', data: replacement,
+      })
+      content.dispatchEvent(event)
+      return { previousSelection, selectedText, prevented: event.defaultPrevented }
+    }, { replacement: draft, codeSelection })
+    expect(eventDetails.previousSelection).toEqual(codeSelection)
+    // DOM Range.toString omits CodeMirror's block line separators.
+    expect(eventDetails.selectedText.replace(/\s/g, '')).toBe(initialDraft.replace(/\s/g, ''))
+    expect(eventDetails.prevented).toBe(true)
+    await expectCode(editor, draft)
+    await editor.press('ControlOrMeta+z')
+    await expectCode(editor, initialDraft)
+  }
+})
+
 test('long Java drafts immediately preserve each keystroke and survive reload', async ({ page }) => {
   const editor = await openEditor(page)
   for (const length of [5000, 19000]) {
