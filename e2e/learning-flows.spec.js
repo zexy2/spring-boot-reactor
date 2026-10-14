@@ -241,6 +241,28 @@ test('code editor Tab indentation can be undone and stays in sync with the saved
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(`${initial}  `)
 })
 
+test('code editor line numbers track added and removed lines without losing the draft', async ({ page }) => {
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
+  const gutter = page.locator('.code-workout .code-editor-gutter')
+
+  await editor.fill('class A {}')
+  await expect(gutter.locator('span')).toHaveText(['1'])
+  const multiline = 'class A {\n  int count;\n}\n'
+  await editor.fill(multiline)
+  await expect(gutter.locator('span')).toHaveText(['1', '2', '3', '4'])
+  await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(multiline)
+
+  await editor.fill('class A {}')
+  await expect(gutter.locator('span')).toHaveText(['1'])
+  await page.reload()
+  await openLearningPhase(page, 1)
+  await expect(editor).toHaveValue('class A {}')
+  await expect(gutter.locator('span')).toHaveText(['1'])
+})
+
 test('Java syntax and missing requirements are checked separately before recording progress', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)

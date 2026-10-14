@@ -1,8 +1,25 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { buildCodePractice, evaluateCodeRequirements, getSyntaxTemplates } from '../../learning/codePractice'
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 import { prefetchJavaSyntaxRuntime, validateJavaSyntax } from '../../learning/javaSyntaxRuntime'
+
+// Rebuild line numbers only when the line count changes, not on every keystroke.
+const CodeLineNumbers = memo(function CodeLineNumbers({ count, gutterRef }) {
+  return (
+    <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => <span key={index}>{index + 1}</span>)}
+    </div>
+  )
+})
+
+function countCodeLines(code) {
+  let count = 1
+  for (let index = 0; index < code.length; index += 1) {
+    if (code.charCodeAt(index) === 10) count += 1
+  }
+  return count
+}
 
 export function prefetchCodeWorkoutRuntime(lesson) {
   const challenge = buildCodePractice(lesson)
@@ -25,6 +42,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
   const editorHelpId = useId()
   const uncheckedRequirements = useMemo(() => challenge ? evaluateCodeRequirements('', challenge) : null, [challenge])
   const syntaxTemplates = useMemo(() => challenge ? getSyntaxTemplates(challenge) : [], [challenge])
+  const codeLineCount = useMemo(() => countCodeLines(answer), [answer])
 
   useEffect(() => {
     verificationId.current += 1
@@ -184,7 +202,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
         </div>
         <div><small>{isFragmentExercise ? 'EKSİK İFADE' : 'SENİN KODUN'}</small>
           <div className="code-editor-shell">
-            <div className="code-editor-gutter" ref={gutterRef} aria-hidden="true">{answer.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div>
+            <CodeLineNumbers count={codeLineCount} gutterRef={gutterRef} />
             <textarea aria-label={`${lesson.title} kod editörü`} aria-describedby={editorHelpId} wrap="off" maxLength={MAX_CODE_DRAFT_LENGTH} value={answer} onChange={(event) => updateAnswer(event.target.value)} onKeyDown={editKeyboard} onScroll={(event) => { if (gutterRef.current) gutterRef.current.scrollTop = event.currentTarget.scrollTop }} spellCheck="false" placeholder={isFragmentExercise ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'} />
           </div>
           <p className="code-scroll-help" id={editorHelpId}>Taslak otomatik kaydedilir, JSON yedeğine dahil edilir · Tab: 2 boşluk (seçili satırları girintiler) · Ctrl/Cmd+Z: geri al · Shift+Tab: önceki alan · Esc: düğmelere geç · Ctrl/Cmd+Enter: kontrol.</p>
