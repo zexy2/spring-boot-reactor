@@ -610,6 +610,35 @@ test('invalid JSON backup is rejected without changing saved progress', async ({
   expect(await page.evaluate((key) => localStorage.getItem(key), storageKey)).toBe(before)
 })
 
+test('failed backup persistence does not report a successful import or change progress', async ({ page }) => {
+  await page.goto('./')
+  const backup = await openBackup(page)
+  await expect.poll(async () => Boolean(await storedProgress(page))).toBe(true)
+  const before = await page.evaluate((key) => localStorage.getItem(key), storageKey)
+  const imported = JSON.parse(before)
+  imported.learning[lessonId] = { attempts: 29 }
+
+  await page.evaluate((key) => {
+    const originalSetItem = Storage.prototype.setItem
+    Storage.prototype.setItem = function (name, value) {
+      if (name === key) throw new DOMException('Storage full', 'QuotaExceededError')
+      return originalSetItem.call(this, name, value)
+    }
+  }, storageKey)
+
+  await backup.locator('input[type=file]').setInputFiles({
+    name: 'valid-but-no-space.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(imported)),
+  })
+
+  await expect(backup.getByRole('status')).toContainText('Tarayıcı kaydı başarısız. İlerleme değiştirilmedi')
+  await expect(page.getByRole('alert')).toContainText('İlerleme bu cihazda kaydedilemiyor')
+  expect(await page.evaluate((key) => localStorage.getItem(key), storageKey)).toBe(before)
+  await page.reload()
+  expect((await storedProgress(page)).learning[lessonId]?.attempts).not.toBe(29)
+})
+
 test('another tab saving progress locks the stale tab until refresh', async ({ page, context }) => {
   await page.goto('./')
   await expect.poll(async () => Boolean(await storedProgress(page))).toBe(true)

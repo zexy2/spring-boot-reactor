@@ -3148,12 +3148,28 @@ function App() {
   const restoreBackup = (incoming, options) => {
     if (storageConflict) throw new Error('Başka sekmede daha yeni kayıt var. Önce bu sekmenin JSON yedeğini indirip sayfayı yenile.')
     const restored = restoreProgressBackup(latestProgress.current, incoming, options)
+    // A successful import must be durable before announcing success. Otherwise
+    // a quota/storage failure leaves the UI showing progress that reload loses.
+    let snapshot
+    try {
+      snapshot = saveProgressStorage(window.localStorage, restored.completed, restored.learning, lessons, { expectedRaw: savedSnapshot.current })
+    } catch (error) {
+      if (error instanceof ProgressStorageConflictError) {
+        setStorageConflict(true)
+        throw error
+      }
+      setStorageWarning(true)
+      throw new Error('Tarayıcı kaydı başarısız. İlerleme değiştirilmedi; depolama alanını kontrol edip tekrar dene.')
+    }
     window.clearTimeout(pendingDraftTimer.current)
     pendingCodeDrafts.current.clear()
+    savedSnapshot.current = JSON.stringify(snapshot)
+    savedProgress.current = restored
     latestProgress.current = restored
     setLearning(restored.learning)
     setCompleted(restored.completed)
     setRecoveryIssue('')
+    setStorageWarning(false)
     return restored
   }
 
