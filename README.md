@@ -58,7 +58,7 @@ flowchart LR
     E --> A
 ```
 
-Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıcı içi alıştırmalardır**. Kod boşluğu sorularında yalnızca eksik ifade yazılır; doğru yazım kontrol edilir ve hatalı denemelerde geri bildirim sunulur. Daha kapsamlı Java görevlerinde gereksinim taraması ve uygun olduğunda sözdizimi ayrıştırması yapılır. Bu kontroller **Java derlemesi, tür denetimi veya davranış testi değildir**; canlı mikroservis ağı ya da Kubernetes kümesi de çalıştırılmaz.
+Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıcı içi alıştırmalardır**. Kod boşluğu sorularında yalnızca eksik ifade yazılır; doğru yazım kontrol edilir ve hatalı denemelerde geri bildirim sunulur. Daha kapsamlı Java görevlerinde gereksinim taraması ve uygun olduğunda sözdizimi ayrıştırması yapılır. Java sözdizimi kontrolü ayrı bir Web Worker içinde çalışır; yavaş ayrıştırma ana arayüzü kilitlemez. Worker yüklenemez veya zaman aşımına uğrarsa doğrulanmamış kod tamamlandı sayılmaz ve yeniden denenebilir. Bu kontroller **Java derlemesi, tür denetimi veya davranış testi değildir**; canlı mikroservis ağı ya da Kubernetes kümesi de çalıştırılmaz.
 
 Geliştirme sırasında `npm run test:java` komutu, **uygulamaya gömülü 10 Java Core örnek çözümünü** JDK 21 ile gerçekten derleyip sınırlı davranış kontrollerinden geçirir. GitHub Actions bu kalite kontrolünü de çalıştırır. Bu süreç öğrencinin tarayıcıya yazdığı kodu derlemez veya çalıştırmaz; örnek çözümlerin hatalı yayımlanma riskini azaltır.
 

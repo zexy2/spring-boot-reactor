@@ -227,6 +227,67 @@ test('Java syntax and missing requirements are checked separately before recordi
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codePassed).toBe(true)
 })
 
+test('browser without Web Worker reports verification unavailable, not invalid Java', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'Worker', {
+      configurable: true,
+      value: class UnavailableWorker {
+        constructor() { throw new Error('Worker blocked in this browser') }
+      },
+    })
+  })
+  await page.goto('?lesson=java-class')
+  await openLearningPhase(page, 1)
+
+  const workout = page.locator('.code-workout')
+  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(codePracticeLibrary['java-class'].solution)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi kontrol edilemedi.')
+  await expect(workout.getByRole('status')).toContainText('henüz doğrulanmadı')
+  await expect(workout.locator('.code-requirements')).toContainText('? Java sözdizimi')
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
+  expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
+})
+
+test('late Java syntax response cannot mark an edited answer complete', async ({ page }) => {
+  // A controlled worker makes a delayed reply deterministic without relying on
+  // browser-specific interception of module-worker network requests.
+  await page.addInitScript(() => {
+    const waiting = []
+    window.__javaSyntaxTest = {
+      count: () => waiting.length,
+      respond: (ok) => {
+        const { instance, id } = waiting.shift()
+        instance.onmessage({ data: { id, ok } })
+      },
+    }
+    window.Worker = class DelayedWorker {
+      postMessage({ id }) { waiting.push({ instance: this, id }) }
+      terminate() {}
+    }
+  })
+  await page.goto('?lesson=java-class', { waitUntil: 'domcontentloaded' })
+  await openLearningPhase(page, 1)
+  const workout = page.locator('.code-workout')
+  const editor = workout.getByRole('textbox', { name: /kod editörü/ })
+
+  await editor.fill(codePracticeLibrary['java-class'].solution)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi kontrol ediliyor')
+  await expect.poll(() => page.evaluate(() => window.__javaSyntaxTest.count())).toBe(1)
+  await editor.fill('class Product { String name; }')
+  await page.evaluate(() => window.__javaSyntaxTest.respond(true))
+
+  await expect(workout.getByRole('status')).toHaveCount(0)
+  await expect(workout).not.toContainText('✓ TAMAMLANDI')
+  expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
+  await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
+  await expect.poll(() => page.evaluate(() => window.__javaSyntaxTest.count())).toBe(1)
+  await page.evaluate(() => window.__javaSyntaxTest.respond(true))
+  await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
+  expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
+})
+
 test('code editor does not accept required Java code hidden inside string literals', async ({ page }) => {
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)

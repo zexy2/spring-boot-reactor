@@ -2,23 +2,13 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { buildCodePractice, evaluateCodeRequirements, getSyntaxTemplates } from '../../learning/codePractice'
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
-
-let javaParserPromise
-
-function loadJavaParser() {
-  if (!javaParserPromise) {
-    javaParserPromise = import('java-parser').catch((error) => {
-      javaParserPromise = undefined
-      throw error
-    })
-  }
-  return javaParserPromise
-}
+import { prefetchJavaSyntaxRuntime, validateJavaSyntax } from '../../learning/javaSyntaxRuntime'
 
 export function prefetchCodeWorkoutRuntime(lesson) {
   const challenge = buildCodePractice(lesson)
   if (!challenge || getSyntaxTemplates(challenge).length === 0) return Promise.resolve(null)
-  return loadJavaParser().catch(() => null)
+  prefetchJavaSyntaxRuntime()
+  return Promise.resolve(null)
 }
 
 export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, onDraftChange }) {
@@ -75,29 +65,13 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
 
     setSyntaxResult({ checking: true, ok: false })
     try {
-      const { parse } = await loadJavaParser()
-      let lastError = null
-      let parsed = false
-      for (const template of syntaxTemplates) {
-        try {
-          parse(template.replace('__ANSWER__', answer))
-          parsed = true
-          break
-        } catch (error) {
-          lastError = error
-        }
-      }
-      if (!parsed) throw lastError
+      const result = await validateJavaSyntax(answer, syntaxTemplates)
       if (verificationId.current !== thisCheck) return
-      setSyntaxResult({ checking: false, ok: true })
-      if (staticSuccess && !passed) onComplete(lesson.id)
+      setSyntaxResult({ checking: false, ok: result.ok, message: result.message })
+      if (result.ok && staticSuccess && !passed) onComplete(lesson.id)
     } catch (error) {
       if (verificationId.current !== thisCheck) return
-      const rawMessage = String(error?.message || '').split('\n')[0].slice(0, 220)
-      const message = /sad sad panda|line:\s*NaN|column:\s*NaN/i.test(rawMessage)
-        ? 'Java parser sözdizimi hatası buldu. Parantezleri, annotation konumunu ve class/method yapısını kontrol et.'
-        : (rawMessage || 'Java sözdizimi çözümlenemedi. Parantezleri ve declaration yapısını kontrol et.')
-      setSyntaxResult({ checking: false, ok: false, message })
+      setSyntaxResult({ checking: false, ok: false, unavailable: true, message: error?.message })
     }
   }
 
@@ -155,6 +129,9 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       feedbackText = staticSuccess
         ? 'Kavram gereksinimleri ve Java grammar kontrolü birlikte geçti. Bu bir type-check/compile değildir.'
         : `${missingSummary} Sözdizimi geçerli olması derleme veya davranış doğrulaması değildir.`
+    } else if (syntaxResult?.unavailable) {
+      feedbackTitle = 'Java sözdizimi kontrol edilemedi.'
+      feedbackText = `${syntaxResult.message}${staticSuccess ? '' : ` ${missingSummary}`}`
     } else if (syntaxResult && !syntaxResult.checking) {
       feedbackTitle = staticSuccess ? 'Java sözdizimi hatası var.' : 'Java sözdizimi hatası ve eksik şartlar var.'
       feedbackText = `${syntaxResult.message || 'Parantez, annotation, generic veya declaration yapısını tekrar kontrol et.'}${staticSuccess ? '' : ` ${missingSummary}`}`
@@ -185,7 +162,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, on
       </div>
       <div className="code-requirements">
         {checks.map((item) => <span key={item.label} className={checked ? (item.ok ? 'ok' : 'missing') : ''}>{checked ? (item.ok ? '✓' : '×') : '·'} {item.label}</span>)}
-        {syntaxRequired && <span className={checked && syntaxResult && !syntaxResult.checking ? (syntaxResult.ok ? 'ok' : 'missing') : ''}>{checked && syntaxResult ? (syntaxResult.checking ? '…' : syntaxResult.ok ? '✓' : '×') : '·'} Java sözdizimi</span>}
+        {syntaxRequired && <span className={checked && syntaxResult && !syntaxResult.checking && !syntaxResult.unavailable ? (syntaxResult.ok ? 'ok' : 'missing') : ''}>{checked && syntaxResult ? (syntaxResult.checking ? '…' : syntaxResult.unavailable ? '?' : syntaxResult.ok ? '✓' : '×') : '·'} Java sözdizimi</span>}
       </div>
       {checked && <div className={`code-workout-feedback ${success ? 'good' : 'bad'}`} role="status" aria-live="polite" aria-atomic="true"><strong>{feedbackTitle}</strong><span>{feedbackText}</span></div>}
       {challenge.hint && <details className="code-workout-hint"><summary>İpucu göster</summary><p>{challenge.hint}</p></details>}
