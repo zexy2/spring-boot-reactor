@@ -87,22 +87,51 @@ const checks = {
     require(sku.getParts().iterator().next().getProperty().toDotPath().equals("sku"), "SKU property");
   `,
   transactions: `
-    java.util.List<String> calls = new java.util.ArrayList<>();
-    LedgerRepository ledger = new LedgerRepository() {
-      public void debit(long id, java.math.BigDecimal amount) { calls.add("debit"); }
-      public void credit(long id, java.math.BigDecimal amount) { calls.add("credit"); }
-    };
-    var service = new TransferService(ledger);
-    try {
-      service.transfer(1, 2, java.math.BigDecimal.ZERO);
-      throw new AssertionError("zero transfer accepted");
-    } catch (IllegalArgumentException expected) {
-      require(calls.isEmpty(), "invalid transfer changed ledger");
+    try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext(
+        TransferFixtureConfig.class)) {
+      var service = context.getBean(TransferService.class);
+      require(org.springframework.aop.support.AopUtils.isAopProxy(service),
+        "transfer must be called through a Spring transaction proxy");
+      var jdbc = context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+      jdbc.execute("CREATE TABLE accounts (id BIGINT PRIMARY KEY, balance DECIMAL(12,2) NOT NULL)");
+      jdbc.update("INSERT INTO accounts VALUES (1, 100.00), (2, 50.00)");
+
+      // Successful transfer commits both account changes.
+      service.transfer(1, 2, new java.math.BigDecimal("10.00"));
+      require(balance(jdbc, 1) == 90 && balance(jdbc, 2) == 60,
+        "successful transfer must commit both entries");
+
+      // Credit fails after debit. Only a real transaction can undo the debit.
+      context.getBean(java.util.concurrent.atomic.AtomicBoolean.class).set(true);
+      try {
+        service.transfer(1, 2, new java.math.BigDecimal("20.00"));
+        throw new AssertionError("credit failure should propagate");
+      } catch (CreditFailure expected) {
+        require(balance(jdbc, 1) == 90 && balance(jdbc, 2) == 60,
+          "failed credit must roll back prior debit");
+      }
+      context.getBean(java.util.concurrent.atomic.AtomicBoolean.class).set(false);
+
+      try {
+        service.transfer(1, 2, java.math.BigDecimal.ZERO);
+        throw new AssertionError("zero transfer accepted");
+      } catch (IllegalArgumentException expected) {
+        require(balance(jdbc, 1) == 90 && balance(jdbc, 2) == 60,
+          "invalid amount must not change accounts");
+      }
+
+      // Negative control: bypassing Spring proxy must leave debit committed on failure.
+      // This proves the rollback check is exercising real transaction management.
+      context.getBean(java.util.concurrent.atomic.AtomicBoolean.class).set(true);
+      try {
+        new TransferService(context.getBean(LedgerRepository.class))
+          .transfer(1, 2, new java.math.BigDecimal("20.00"));
+        throw new AssertionError("direct transfer credit failure should propagate");
+      } catch (CreditFailure expected) {
+        require(balance(jdbc, 1) == 70 && balance(jdbc, 2) == 60,
+          "without Spring proxy, failed debit must remain committed");
+      }
     }
-    service.transfer(1, 2, java.math.BigDecimal.ONE);
-    require(calls.equals(java.util.List.of("debit", "credit")), "transfer order");
-    require(TransferService.class.getDeclaredMethod("transfer", long.class, long.class, java.math.BigDecimal.class)
-      .isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class), "transaction annotation");
   `,
   exceptions: `
     var response = org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -116,6 +145,60 @@ const checks = {
 }
 
 const auxiliary = {
+  transactions: `
+  static int balance(org.springframework.jdbc.core.JdbcTemplate jdbc, long id) {
+    return jdbc.queryForObject("SELECT balance FROM accounts WHERE id = ?", int.class, id);
+  }
+
+  static class CreditFailure extends RuntimeException {}
+
+  @org.springframework.context.annotation.Configuration
+  @org.springframework.transaction.annotation.EnableTransactionManagement(proxyTargetClass = true)
+  static class TransferFixtureConfig {
+    @org.springframework.context.annotation.Bean
+    javax.sql.DataSource dataSource() {
+      var source = new org.h2.jdbcx.JdbcDataSource();
+      source.setURL("jdbc:h2:mem:transfer_fixture;DB_CLOSE_DELAY=-1");
+      return source;
+    }
+
+    @org.springframework.context.annotation.Bean
+    org.springframework.transaction.PlatformTransactionManager transactionManager(javax.sql.DataSource source) {
+      return new org.springframework.jdbc.datasource.DataSourceTransactionManager(source);
+    }
+
+    @org.springframework.context.annotation.Bean
+    org.springframework.jdbc.core.JdbcTemplate jdbcTemplate(javax.sql.DataSource source) {
+      return new org.springframework.jdbc.core.JdbcTemplate(source);
+    }
+
+    @org.springframework.context.annotation.Bean
+    java.util.concurrent.atomic.AtomicBoolean failCredit() {
+      return new java.util.concurrent.atomic.AtomicBoolean(false);
+    }
+
+    @org.springframework.context.annotation.Bean
+    LedgerRepository ledgerRepository(org.springframework.jdbc.core.JdbcTemplate jdbc,
+        java.util.concurrent.atomic.AtomicBoolean failCredit) {
+      return new LedgerRepository() {
+        public void debit(long id, java.math.BigDecimal amount) {
+          require(jdbc.update("UPDATE accounts SET balance = balance - ? WHERE id = ?", amount, id) == 1,
+            "debit must update one account");
+        }
+        public void credit(long id, java.math.BigDecimal amount) {
+          if (failCredit.get()) throw new CreditFailure();
+          require(jdbc.update("UPDATE accounts SET balance = balance + ? WHERE id = ?", amount, id) == 1,
+            "credit must update one account");
+        }
+      };
+    }
+
+    @org.springframework.context.annotation.Bean
+    TransferService transferService(LedgerRepository ledger) {
+      return new TransferService(ledger);
+    }
+  }
+  `,
   exceptions: `
   @org.springframework.web.bind.annotation.RestController
   static class ThrowingController {

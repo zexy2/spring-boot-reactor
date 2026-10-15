@@ -62,7 +62,7 @@ Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıc�
 
 Geliştirme sırasında `npm run test:java` komutu, **uygulamaya gömülü 10 Java Core örnek çözümünü** JDK 21 ile gerçekten derleyip sınırlı davranış kontrollerinden geçirir. GitHub Actions bu kalite kontrolünü de çalıştırır. Bu süreç öğrencinin tarayıcıya yazdığı kodu derlemez veya çalıştırmaz; örnek çözümlerin hatalı yayımlanma riskini azaltır.
 
-`npm run test:spring` ayrıca **9 Spring örnek çözümünü** Maven ile çözümlenen gerçek Spring Boot 3.5 bağımlılıkları karşısında JDK 21 ile derler; Spring context, MockMvc HTTP eşlemesi, Bean Validation, JPA sorgu ayrıştırma ve sınırlı servis davranışlarını test eder. Bu geliştirici/CI kontrolü için JDK 21 ve Maven gerekir. Öğrencinin kodu hâlâ yalnızca tarayıcıda statik olarak değerlendirilir. Transaction testindeki doğrudan servis çağrısı gerçek veritabanı rollback testinin yerine geçmez.
+`npm run test:spring` ayrıca **9 Spring örnek çözümünü** Maven ile çözümlenen gerçek Spring Boot 3.5 bağımlılıkları karşısında JDK 21 ile derler; Spring context, MockMvc HTTP eşlemesi, Bean Validation, JPA sorgu ayrıştırma ve servis davranışlarını test eder. Transaction senaryosu H2 veritabanında Spring AOP proxy üzerinden başarılı commit, başarısız credit sonrası rollback ve geçersiz tutar korumasını doğrular. Bu geliştirici/CI kontrolü için JDK 21 ve Maven gerekir. Öğrencinin kodu hâlâ yalnızca tarayıcıda statik olarak değerlendirilir; H2 kontrolü dağıtık transaction veya production veritabanı testi değildir.
 
 <a id="curriculum"></a>
 ## 14 aşamalı öğrenme yolu
