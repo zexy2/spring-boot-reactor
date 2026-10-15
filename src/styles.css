@@ -173,7 +173,7 @@ body::before {
 .flow-node strong { color: var(--text); font-size: 11px; margin-bottom: 4px; white-space: nowrap; }
 .flow-node small { font: 400 9px 'IBM Plex Mono', monospace; white-space: nowrap; }
 .packet { position: absolute; z-index: 4; top: 4px; transform: translateX(-50%); padding: 4px 6px; background: var(--signal); color: #34200b; font: 700 8px 'IBM Plex Mono', monospace; box-shadow: 0 0 28px rgba(255,180,91,.28); }
-.lab-controls { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 10px; }
+.lab-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 10px; }
 .lab-controls button { background: transparent; color: var(--text); border: 1px solid var(--line); padding: 8px 10px; cursor: pointer; font-size: 11px; }
 .lab-controls span { color: var(--muted); font: 500 10px 'IBM Plex Mono', monospace; }
 

@@ -2567,11 +2567,22 @@ function DailyStudyPanel({ plan, dueCount, onOpen }) {
 function RequestLab() {
   const [step, setStep] = useState(0)
   const reduced = useReducedMotion()
+  // Follow the OS preference until the learner explicitly chooses playback.
+  const [playbackPreference, setPlaybackPreference] = useState(null)
+  const playing = playbackPreference ?? !reduced
 
   useEffect(() => {
-    const id = window.setInterval(() => setStep((current) => (current + 1) % flow.length), 2200)
+    if (!playing) return undefined
+    const id = window.setInterval(() => {
+      if (!document.hidden) setStep((current) => (current + 1) % flow.length)
+    }, 2200)
     return () => window.clearInterval(id)
-  }, [])
+  }, [playing])
+
+  const chooseStep = (next) => {
+    setPlaybackPreference(false)
+    setStep((next + flow.length) % flow.length)
+  }
 
   return (
     <section className="request-lab" aria-label="Canlı request simülatörü">
@@ -2579,12 +2590,12 @@ function RequestLab() {
         <span className="eyebrow">CANLI REQUEST LAB</span>
         <h2>Bir HTTP isteğinin içinden geç.</h2>
         <p>{flow[step].detail}</p>
-        <div className="lab-readout"><span>Şu an</span><strong>{flow[step].label}</strong><code>{flow[step].sub}</code></div>
+        <div className="lab-readout" aria-live={playing ? 'off' : 'polite'} aria-atomic="true"><span>Şu an</span><strong>{flow[step].label}</strong><code>{flow[step].sub}</code></div>
       </div>
       <div className="flow-track">
         <div className="flow-line" />
         {flow.map((node, index) => (
-          <button key={node.label} className={`flow-node ${index === step ? 'active' : ''} ${index < step ? 'visited' : ''}`} onClick={() => setStep(index)}>
+          <button key={node.label} className={`flow-node ${index === step ? 'active' : ''} ${index < step ? 'visited' : ''}`} aria-current={index === step ? 'step' : undefined} onClick={() => chooseStep(index)}>
             <span className="node-index">{String(index + 1).padStart(2, '0')}</span>
             <strong>{node.label}</strong>
             <small>{node.sub}</small>
@@ -2598,9 +2609,10 @@ function RequestLab() {
         >REQ</motion.div>
       </div>
       <div className="lab-controls">
-        <button onClick={() => setStep((step - 1 + flow.length) % flow.length)}>← Önceki</button>
+        <button type="button" onClick={() => chooseStep(step - 1)}>← Önceki</button>
         <span>{step + 1} / {flow.length}</span>
-        <button onClick={() => setStep((step + 1) % flow.length)}>Sonraki →</button>
+        <button type="button" onClick={() => chooseStep(step + 1)}>Sonraki →</button>
+        <button type="button" aria-label="Otomatik oynatma" aria-pressed={playing} onClick={() => setPlaybackPreference(!playing)}>{playing ? '⏸ Durdur' : '▶ Oynat'}</button>
       </div>
     </section>
   )
