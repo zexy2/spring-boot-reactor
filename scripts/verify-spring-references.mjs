@@ -85,6 +85,34 @@ const checks = {
     require(query.getSort().getOrderFor("name").isAscending(), "derived query sort");
     var sku = new org.springframework.data.repository.query.parser.PartTree("findBySku", Product.class);
     require(sku.getParts().iterator().next().getProperty().toDotPath().equals("sku"), "SKU property");
+
+    // Exercise the real Spring Data repository against H2, not only method-name parsing.
+    try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext(
+        RepositoryFixtureConfig.class)) {
+      var repository = context.getBean(ProductRepository.class);
+      var tx = new org.springframework.transaction.support.TransactionTemplate(
+        context.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+      tx.executeWithoutResult(status -> {
+        repository.save(product(1L, "SKU-Z", "Zeytin", true));
+        repository.save(product(2L, "SKU-I", "Abaküs", false));
+        repository.save(product(3L, "SKU-K", "Kalem", true));
+        repository.save(product(4L, "SKU-A", "Armut", true));
+        repository.flush();
+      });
+      var jdbc = context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+      require(jdbc.queryForObject("SELECT COUNT(*) FROM product", Integer.class) == 4,
+        "repository must persist four rows in H2");
+
+      tx.executeWithoutResult(status -> {
+        var active = repository.findByActiveTrueOrderByNameAsc();
+        require(active.size() == 3, "derived query filters inactive products");
+        require(active.get(0).name.equals("Armut") && active.get(1).name.equals("Kalem")
+            && active.get(2).name.equals("Zeytin"), "derived query sorts ascending by name");
+        require(repository.findBySku("SKU-I").map(found -> found.name)
+          .orElse("").equals("Abaküs"), "SKU lookup retrieves persisted inactive product");
+        require(repository.findBySku("NONEXISTENT").isEmpty(), "missing SKU yields Optional.empty");
+      });
+    }
   `,
   transactions: `
     try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext(
@@ -145,6 +173,57 @@ const checks = {
 }
 
 const auxiliary = {
+  repository: `
+  static Product product(long id, String sku, String name, boolean active) {
+    var product = new Product();
+    product.id = id;
+    product.sku = sku;
+    product.name = name;
+    product.active = active;
+    return product;
+  }
+
+  @org.springframework.context.annotation.Configuration
+  static class RepositoryFixtureConfig {
+    @org.springframework.context.annotation.Bean
+    javax.sql.DataSource dataSource() {
+      var source = new org.h2.jdbcx.JdbcDataSource();
+      source.setURL("jdbc:h2:mem:repository_fixture;DB_CLOSE_DELAY=-1");
+      return source;
+    }
+
+    @org.springframework.context.annotation.Bean
+    org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean entityManagerFactory(
+        javax.sql.DataSource source) {
+      var factory = new org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean();
+      factory.setDataSource(source);
+      // Explicit managed types keep default-package exercise isolated from classpath scanning.
+      factory.setManagedTypes(org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes
+        .of(Product.class.getName()));
+      factory.setJpaVendorAdapter(new org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter());
+      factory.setJpaPropertyMap(java.util.Map.of("hibernate.hbm2ddl.auto", "create-drop"));
+      return factory;
+    }
+
+    @org.springframework.context.annotation.Bean
+    org.springframework.transaction.PlatformTransactionManager transactionManager(
+        jakarta.persistence.EntityManagerFactory factory) {
+      return new org.springframework.orm.jpa.JpaTransactionManager(factory);
+    }
+
+    @org.springframework.context.annotation.Bean
+    org.springframework.jdbc.core.JdbcTemplate jdbcTemplate(javax.sql.DataSource source) {
+      return new org.springframework.jdbc.core.JdbcTemplate(source);
+    }
+
+    @org.springframework.context.annotation.Bean
+    ProductRepository productRepository(jakarta.persistence.EntityManagerFactory factory) {
+      var shared = org.springframework.orm.jpa.SharedEntityManagerCreator.createSharedEntityManager(factory);
+      return new org.springframework.data.jpa.repository.support.JpaRepositoryFactory(shared)
+        .getRepository(ProductRepository.class);
+    }
+  }
+  `,
   transactions: `
   static int balance(org.springframework.jdbc.core.JdbcTemplate jdbc, long id) {
     return jdbc.queryForObject("SELECT balance FROM accounts WHERE id = ?", int.class, id);
