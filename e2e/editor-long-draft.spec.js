@@ -63,7 +63,9 @@ test('visible partial DOM selection wins over a stale nonempty CodeMirror select
     view.__selectCodeRange(6, 10)
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
     let node
-    while ((node = walker.nextNode()) && !node.textContent.includes('class')) {}
+    while ((node = walker.nextNode())) {
+      if (node.textContent.includes('class')) break
+    }
     if (!node) throw new Error('Expected rendered class token')
     const from = node.textContent.indexOf('class')
     const range = document.createRange()

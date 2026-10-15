@@ -10,10 +10,23 @@ import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify, onEscape, onLimitReached, readDocumentRef, label, helpId, fragment }) {
   const mountRef = useRef(null)
   const viewRef = useRef(null)
+  const valueRef = useRef(value)
+  valueRef.current = value
+  const mountConfigRef = useRef(null)
+  if (mountConfigRef.current === null) {
+    mountConfigRef.current = { value, readDocumentRef, label, helpId, fragment }
+  }
   const callbacks = useRef({ onChange, onVerify, onEscape, onLimitReached })
   callbacks.current = { onChange, onVerify, onEscape, onLimitReached }
 
   useLayoutEffect(() => {
+    const {
+      value: initialValue,
+      readDocumentRef: initialReadDocumentRef,
+      label: initialLabel,
+      helpId: initialHelpId,
+      fragment: initialFragment,
+    } = mountConfigRef.current
     const insertSpaces = (view) => {
       if (view.state.selection.ranges.some((range) => !range.empty)) {
         const previous = view.state.selection.main
@@ -42,8 +55,8 @@ export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify,
         if (transaction.docChanged) queueMicrotask(() => callbacks.current.onLimitReached?.())
         return false
       }),
-      EditorView.contentAttributes.of({ 'aria-label': label, 'aria-describedby': helpId, 'aria-multiline': 'true', 'data-maxlength': String(MAX_CODE_DRAFT_LENGTH) }),
-      placeholder(fragment ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'),
+      EditorView.contentAttributes.of({ 'aria-label': initialLabel, 'aria-describedby': initialHelpId, 'aria-multiline': 'true', 'data-maxlength': String(MAX_CODE_DRAFT_LENGTH) }),
+      placeholder(initialFragment ? 'TODO yerine gelecek ifadeyi yaz...' : 'Eksik kodu buraya yaz...'),
       keymap.of([
         // The browser can only select rendered lines of a virtualized document.
         { key: 'Mod-a', run: selectAll },
@@ -56,7 +69,7 @@ export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify,
       }),
     ]
     const makeState = (doc) => EditorState.create({ doc, extensions })
-    const view = new EditorView({ state: makeState(value), parent: mountRef.current })
+    const view = new EditorView({ state: makeState(initialValue), parent: mountRef.current })
     let compositionActive = false
     // Catch the shortcut before platform-specific mobile input handling.
     const onShortcut = (event) => {
@@ -116,7 +129,7 @@ export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify,
     view.contentDOM.addEventListener('blur', onCompositionEnd, true)
     view.contentDOM.addEventListener('beforeinput', onMultiCharacterInsert, true)
     viewRef.current = { view, makeState }
-    readDocumentRef.current = () => view.state.doc.toString()
+    initialReadDocumentRef.current = () => view.state.doc.toString()
     // Read-only E2E diagnostic: includes offscreen document content.
     view.dom.__getCodeDraft = () => view.state.doc.toString()
     view.dom.__selectCodeRange = (from, to) => view.dispatch({ selection: { anchor: from, head: to } })
@@ -128,18 +141,19 @@ export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify,
       view.contentDOM.removeEventListener('blur', onCompositionEnd, true)
       view.contentDOM.removeEventListener('beforeinput', onMultiCharacterInsert, true)
       viewRef.current = null
-      readDocumentRef.current = null
+      initialReadDocumentRef.current = null
       view.destroy()
     }
   }, [])
 
   useLayoutEffect(() => {
     const editor = viewRef.current
-    if (!editor || editor.view.state.doc.toString() === value) return
+    const nextValue = valueRef.current
+    if (!editor || editor.view.state.doc.toString() === nextValue) return
     // Only explicit restore/reset revisions may replace CodeMirror state.
     // React can commit an older local value after a newer editor transaction;
     // syncing every value prop would roll back fast typing, paste or undo.
-    editor.view.setState(editor.makeState(value))
+    editor.view.setState(editor.makeState(nextValue))
   }, [syncVersion])
 
   return <div className="code-editor-shell" ref={mountRef} />

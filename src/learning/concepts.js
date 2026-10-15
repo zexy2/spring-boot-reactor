@@ -449,13 +449,6 @@ export function getLessonTerms(lesson) {
   return items.filter(([term], index) => items.findIndex(([other]) => normalizeConcept(other) === normalizeConcept(term)) === index)
 }
 
-function findConcept(label, lesson) {
-  const key = normalizeConcept(label)
-  const local = getLessonTerms(lesson).find(([term]) => normalizeConcept(term) === key)
-  if (local) return { term: local[0], meaning: local[1], lessonId: lesson.id, lessonTitle: lesson.title }
-  return glossary.find((item) => normalizeConcept(item.term) === key) ?? null
-}
-
 function findPriorConcept(label, lesson) {
   const key = normalizeConcept(label)
   const lessonIndex = lessons.findIndex((item) => item.id === lesson.id)

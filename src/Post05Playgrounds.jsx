@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import { initialServiceFleet, checkoutResponse, fleetMissionPassed } from './learning/machineChallenges'
 import { createResilienceState, expireResilienceCooldown, runResilienceRequest } from './learning/resilienceSimulation'
 import { createBrokerState, deliverBrokerMessage, publishOrderEvent, redriveDeadLetter, setBrokerConsumerOnline, settleBrokerMessage, MAX_BROKER_DELIVERIES } from './learning/brokerSimulation'
@@ -1445,7 +1445,6 @@ function RollbackGame({ lesson,spec }) {
   const traffic=deploymentTraffic(release)
   const breach=release.errorRate>=ROLLBACK_ERROR_THRESHOLD
   const rolled=release.status==='ROLLED_BACK'
-  const rollbackAllowed=breach&&release.dbCompatible&&!rolled
   const footer=release.blockedReason
     ?? (rolled
     ? 'Application rollback tamamlandı: trafik v1.4.1’e döndü. Telemetry ve root cause analizi devam eder.'

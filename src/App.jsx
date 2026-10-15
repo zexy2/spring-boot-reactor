@@ -10,7 +10,7 @@ import { InterviewMode, MixedInterviewPanel, RoleInterviewPanel } from './compon
 import { lessons, phases } from './data/curriculum'
 import { processScenarios } from './data/processScenarios'
 import { architectureScenarios } from './data/architectureScenarios'
-import { arrangeChoices, hashString } from './learning/choiceUtils'
+import { arrangeChoices, hashString, shuffleChoices } from './learning/choiceUtils'
 import { buildCodePractice } from './learning/codePractice'
 import { buildCheckpointQuestions, buildRetryQuestion } from './learning/checkpointQuestions'
 import { conceptAliases, escapeRegex, getConceptDetail, getLessonTerms, getPrerequisites, normalizeConcept } from './learning/concepts'
@@ -48,14 +48,6 @@ const flow = [
   { label: 'Service', sub: 'iş kuralı', detail: 'Business rule ve use-case burada yürür.' },
   { label: 'Repository', sub: 'veri erişimi', detail: 'Gerekiyorsa kalıcı veriye erişim yapılır.' },
   { label: 'Database', sub: 'kalıcı veri', detail: 'Veri okunur veya değiştirilir.' },
-]
-
-const primer = [
-  { token: 'class', title: 'Kalıp', detail: 'Yeni bir Java tipi tanımlar. Object’ler bu kalıptan üretilebilir.', sample: 'class Product { }' },
-  { token: '()', title: 'Çağrı / parametre alanı', detail: 'Method çağrısı veya tanımında parantez görürsün. Constructor da parantez kullanır.', sample: 'product.label()' },
-  { token: 'new', title: 'Object oluştur', detail: 'Bir class’tan yeni object oluştururken kullanılır.', sample: 'new Product()' },
-  { token: '@', title: 'Annotation', detail: 'Koda metadata ekler. Tek başına object oluşturmaz.', sample: '@Override' },
-  { token: '<T>', title: 'Generic tip', detail: 'Bir yapı içinde hangi tipin taşındığını belirtir.', sample: 'List<Product>' },
 ]
 
 function InteractiveCode({ code, concepts, onConcept }) {
@@ -174,35 +166,6 @@ function earnedLessonXp(lesson, record, completed) {
     : 0
   const interviewScore = Math.max(0, Math.min(4, Number(record.interviewBestScore) || 0)) / 4
   return Math.round(max * (0.6 + (accuracy * 0.2) + (recallScore * 0.1) + (interviewScore * 0.1)))
-}
-
-function PrimerLab() {
-  const [index, setIndex] = useState(0)
-  const item = primer[index]
-
-  return (
-    <section className="primer-lab" aria-label="Kod okuma laboratuvarı">
-      <div className="primer-copy">
-        <span className="eyebrow">SIFIRDAN KOD OKUMA LAB</span>
-        <h2>Önce gördüğün sembolü çöz.</h2>
-        <p>Spring’e geçmeden önce Java kodunu okuyabilmen gerekiyor. Aşağıdaki parçaları tek tek tıkla.</p>
-      </div>
-      <div className="primer-grid">
-        <div className="primer-tokens">
-          {primer.map((part, partIndex) => (
-            <button key={part.token} className={partIndex === index ? 'active' : ''} onClick={() => setIndex(partIndex)}>
-              <code>{part.token}</code><span>{part.title}</span>
-            </button>
-          ))}
-        </div>
-        <motion.div key={item.token} className="primer-detail" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <code>{item.sample}</code>
-          <h3>{item.title}</h3>
-          <p>{item.detail}</p>
-        </motion.div>
-      </div>
-    </section>
-  )
 }
 
 function LabShell({ eyebrow, title, copy, children, badge }) {
@@ -2036,7 +1999,7 @@ function SynchronousCommunicationLab() {
       window.clearTimeout(waitTimer)
       window.clearTimeout(finishTimer)
     }
-  }, [runId, reduced])
+  }, [runId, reduced, succeeds])
 
   const outcome = phase === 'idle'
     ? ['HAZIR', 'Request henüz gönderilmedi.', 'Order Service, Payment cevabını bekleyen senkron çağrı yapacak.']
@@ -2812,17 +2775,26 @@ function GuidedLearningLesson({ lesson, completed, status, learningRecordData, c
 
 function Quiz({ lesson, completed, record, onComplete, onAnswer, hasCodeWorkout = false, codePassed = false }) {
   const baseQuestions = useMemo(() => buildCheckpointQuestions(lesson), [lesson])
-  const adaptivePlan = useMemo(() => buildAdaptiveMasteryPlan(baseQuestions, record), [lesson.id, baseQuestions])
+  // The lesson article is keyed by lesson.id, so each quiz mount snapshots the
+  // incoming mastery record once. Answer updates must not reshuffle the active
+  // adaptive deck while the learner is in the middle of the checkpoint.
+  const [sessionRecord] = useState(() => record)
+  const adaptivePlan = useMemo(() => buildAdaptiveMasteryPlan(baseQuestions, sessionRecord), [baseQuestions, sessionRecord])
   const conceptIds = useMemo(() => baseQuestions.map((item) => item.conceptId), [baseQuestions])
   const checkpoint = checkpointMasteryState(record, conceptIds)
   const masteredConcepts = new Set(checkpoint.masteredConceptIds)
   const retryAttempts = checkpoint.retryAttempts
-  const buildResumeQuestions = () => adaptivePlan.questions
-    .filter((item) => !masteredConcepts.has(item.conceptId))
-    .map((item) => {
-      const retryAttempt = retryAttempts[item.conceptId] ?? 0
-      return retryAttempt > 0 ? buildRetryQuestion(item, lesson, retryAttempt) : item
-    })
+  const resumeStateRef = useRef(null)
+  resumeStateRef.current = { masteredConcepts, retryAttempts, lesson }
+  const buildResumeQuestions = useCallback(() => {
+    const resumeState = resumeStateRef.current
+    return adaptivePlan.questions
+      .filter((item) => !resumeState.masteredConcepts.has(item.conceptId))
+      .map((item) => {
+        const retryAttempt = resumeState.retryAttempts[item.conceptId] ?? 0
+        return retryAttempt > 0 ? buildRetryQuestion(item, resumeState.lesson, retryAttempt) : item
+      })
+  }, [adaptivePlan.questions])
   const [questions, setQuestions] = useState(buildResumeQuestions)
   const [questionIndex, setQuestionIndex] = useState(0)
   const [picked, setPicked] = useState(null)
@@ -2837,7 +2809,7 @@ function Quiz({ lesson, completed, record, onComplete, onAnswer, hasCodeWorkout 
     setQuestions(buildResumeQuestions())
     setQuestionIndex(0)
     setPicked(null)
-  }, [lesson.id, adaptivePlan])
+  }, [lesson.id, buildResumeQuestions])
 
   useEffect(() => {
     if (mastered && completionAllowed && !completed) onComplete()
@@ -2905,98 +2877,6 @@ function Quiz({ lesson, completed, record, onComplete, onAnswer, hasCodeWorkout 
           : <div className={`mastery-result ${mastered ? 'done' : ''}`}>{completed || mastered ? `✓ ${baseQuestions.length}/${baseQuestions.length} · Ders tamamlandı` : 'Yanlış kalan kavram tekrar çözülmeden tamamlanmaz'}</div>
       )}
     </div>
-  )
-}
-
-function Lesson({ lesson, completed, onComplete, onNext, nextLesson, index, total }) {
-  const prerequisites = useMemo(() => getPrerequisites(lesson), [lesson])
-  const lessonTerms = useMemo(() => getLessonTerms(lesson), [lesson])
-  const concepts = useMemo(() => {
-    const items = [...prerequisites, ...lessonTerms.map(([term, meaning]) => ({ term, meaning, lessonId: lesson.id, lessonTitle: lesson.title }))]
-    return items.filter((item, itemIndex) => items.findIndex((other) => normalizeConcept(other.term) === normalizeConcept(item.term)) === itemIndex)
-  }, [lesson, lessonTerms, prerequisites])
-  const [selectedConcept, setSelectedConcept] = useState(null)
-
-  useEffect(() => setSelectedConcept(null), [lesson.id])
-
-  return (
-    <AnimatePresence mode="wait">
-      <motion.article key={lesson.id} className="lesson" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .25 }}>
-        <div className="lesson-topline">
-          <span>DERS {index + 1}/{total}</span><span>{lesson.minutes} dk</span><span>+{lesson.xp} XP</span><span>{completed ? 'TAMAMLANDI' : 'AKTİF DERS'}</span>
-        </div>
-        <h1>{lesson.title}</h1>
-        <p className="hook">{lesson.hook}</p>
-
-        {prerequisites.length > 0 && (
-          <section className="prerequisite-section">
-            <div className="section-label"><span>BUNU BİLMİYORSAN ÖNCE BURAYA BAK</span><b>{prerequisites.length} temel kavram</b></div>
-            <p>Ders kilitli değil. Eksik kelime varsa tıkla, 20 saniyede hatırla, sonra devam et.</p>
-            <div className="prerequisite-list">
-              {prerequisites.map((concept) => <button type="button" key={`${lesson.id}-${concept.term}`} onClick={() => setSelectedConcept(concept)}><code>{concept.term}</code><span>{concept.meaning}</span></button>)}
-            </div>
-          </section>
-        )}
-
-        {lessonTerms.length > 0 && (
-          <section className="terms-section">
-            <div className="section-label"><span>ÖNCE BU KELİMELER · TIKLA VE PARÇALA</span><b>{lessonTerms.length} kavram</b></div>
-            <div className="term-grid">
-              {lessonTerms.map(([term, meaning]) => (
-                <button type="button" className="term-card" key={term} onClick={() => setSelectedConcept({ term, meaning, lessonId: lesson.id, lessonTitle: lesson.title })}><code>{term}</code><p>{meaning}</p><small>detayı aç +</small></button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <AnimatePresence mode="wait">
-          {selectedConcept && <ConceptInspector key={`${lesson.id}-${selectedConcept.term}`} concept={selectedConcept} lesson={lesson} onClose={() => setSelectedConcept(null)} />}
-        </AnimatePresence>
-
-        <div className="analogy">
-          <span className="section-label">AKILDA KALSIN</span>
-          <p>{lesson.story}</p>
-        </div>
-
-        <div className="lesson-grid">
-          <section>
-            <span className="section-label">BİLMEN GEREKEN</span>
-            <ul className="points">{lesson.points.map((point) => <li key={point}>{point}</li>)}</ul>
-          </section>
-          <section className="code-card">
-            <div className="code-head"><span>GERÇEK KOD / MODEL · RENKLİ KAVRAMA TIKLA</span><i>{codeLanguageForLesson(lesson)}</i></div>
-            <pre><InteractiveCode code={lesson.code} concepts={concepts} onConcept={setSelectedConcept} /></pre>
-          </section>
-        </div>
-
-        {lesson.codeNotes?.length > 0 && (
-          <section className="code-walkthrough">
-            <div className="section-label"><span>KODU SATIR SATIR SÖK</span><b>{lesson.codeNotes.length} parça</b></div>
-            <div className="walkthrough-list">
-              {lesson.codeNotes.map(([fragment, explanation], noteIndex) => (
-                <div className="walkthrough-row" key={`${fragment}-${noteIndex}`}>
-                  <code>{fragment}</code><p>{explanation}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <MemoryGame lesson={lesson} />
-        <Quiz lesson={lesson} completed={completed} onComplete={onComplete} />
-        {nextLesson && (
-          <button className={`next-lesson ${completed ? 'ready' : 'preview'}`} onClick={onNext}>
-            <span className="next-lesson-copy">
-              <small>DERS {index + 2}/{total} · SONRAKİ KONU</small>
-              <strong>{nextLesson.title}</strong>
-              <em>{nextLesson.hook}</em>
-              {!completed && <span className="next-lesson-note">Kilit yok. Buraya geçebilirsin; mevcut dersin checkpoint'i tamamlanmış sayılmaz.</span>}
-            </span>
-            <b>→</b>
-          </button>
-        )}
-      </motion.article>
-    </AnimatePresence>
   )
 }
 
@@ -3182,7 +3062,7 @@ function App() {
         throw error
       }
       setStorageWarning(true)
-      throw new Error('Tarayıcı kaydı başarısız. İlerleme değiştirilmedi; depolama alanını kontrol edip tekrar dene.')
+      throw new Error('Tarayıcı kaydı başarısız. İlerleme değiştirilmedi; depolama alanını kontrol edip tekrar dene.', { cause: error })
     }
     window.clearTimeout(pendingDraftTimer.current)
     pendingCodeDrafts.current.clear()

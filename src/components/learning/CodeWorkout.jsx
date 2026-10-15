@@ -15,7 +15,9 @@ export function prefetchCodeWorkoutRuntime(lesson) {
 
 export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, savedDraftUpdatedAt, onDraftChange }) {
   const challenge = useMemo(() => buildCodePractice(lesson), [lesson])
-  const initialAnswer = () => typeof savedDraft === 'string' ? savedDraft : challenge?.editableStarter ? challenge.starter : ''
+  const initialAnswer = typeof savedDraft === 'string' ? savedDraft : challenge?.editableStarter ? challenge.starter : ''
+  const initialAnswerRef = useRef(initialAnswer)
+  initialAnswerRef.current = initialAnswer
   const [answer, setAnswer] = useState(initialAnswer)
   const [editorSyncVersion, setEditorSyncVersion] = useState(0)
   // CodeMirror sends document changes synchronously. A verification click can
@@ -39,7 +41,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   useEffect(() => {
     verificationId.current += 1
     latestLocalDraftTimestamp.current = 0
-    const restored = initialAnswer()
+    const restored = initialAnswerRef.current
     answerRef.current = restored
     setAnswer(restored)
     setEditorSyncVersion((version) => version + 1)
@@ -52,7 +54,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   }, [lesson.id, challenge?.editableStarter, challenge?.starter])
 
   useEffect(() => {
-    const restoredAnswer = initialAnswer()
+    const restoredAnswer = initialAnswerRef.current
     // The parent batches React updates for locally saved drafts. Never let an
     // older local snapshot overwrite text entered after that snapshot.
     // A newer imported backup (or a draft cleared by restore) still applies.

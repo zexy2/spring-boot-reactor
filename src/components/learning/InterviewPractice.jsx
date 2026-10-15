@@ -298,7 +298,7 @@ function MixedInterviewPanel() {
   const [index, setIndex] = useState(0)
   const [answer, setAnswer] = useState('')
   const [revealed, setRevealed] = useState(false)
-  const { secondsLeft, running, startCountdown, stopCountdown, resetCountdown } = useInterviewCountdown(60, () => setRevealed(true))
+  const { secondsLeft, startCountdown, stopCountdown, resetCountdown } = useInterviewCountdown(60, () => setRevealed(true))
   const [rubric, setRubric] = useState(() => interviewRubric.map(() => false))
   const [scores, setScores] = useState([])
   const sessionDeck = useMemo(() => {
