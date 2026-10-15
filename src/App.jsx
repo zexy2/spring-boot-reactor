@@ -2566,6 +2566,7 @@ function DailyStudyPanel({ plan, dueCount, onOpen }) {
 
 function RequestLab() {
   const [step, setStep] = useState(0)
+  const flowTrackRef = useRef(null)
   const reduced = useReducedMotion()
   // Follow the OS preference until the learner explicitly chooses playback.
   const [playbackPreference, setPlaybackPreference] = useState(null)
@@ -2578,6 +2579,16 @@ function RequestLab() {
     }, 2200)
     return () => window.clearInterval(id)
   }, [playing])
+
+  useEffect(() => {
+    const track = flowTrackRef.current
+    if (!track || track.scrollWidth <= track.clientWidth + 1) return
+
+    const active = track.querySelector('[aria-current="step"]')
+    if (!active) return
+    const centeredLeft = active.offsetLeft - (track.clientWidth - active.offsetWidth) / 2
+    track.scrollTo({ left: centeredLeft, behavior: reduced ? 'auto' : 'smooth' })
+  }, [step, reduced])
 
   const chooseStep = (next) => {
     setPlaybackPreference(false)
@@ -2592,7 +2603,7 @@ function RequestLab() {
         <p>{flow[step].detail}</p>
         <div className="lab-readout" aria-live={playing ? 'off' : 'polite'} aria-atomic="true"><span>Şu an</span><strong>{flow[step].label}</strong><code>{flow[step].sub}</code></div>
       </div>
-      <div className="flow-track">
+      <div className="flow-track" ref={flowTrackRef}>
         <div className="flow-line" />
         {flow.map((node, index) => (
           <button key={node.label} className={`flow-node ${index === step ? 'active' : ''} ${index < step ? 'visited' : ''}`} aria-current={index === step ? 'step' : undefined} onClick={() => chooseStep(index)}>

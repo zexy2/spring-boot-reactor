@@ -45,3 +45,46 @@ test('normal-motion playback can be stopped and stays stopped after choosing a n
   await page.waitForTimeout(2450)
   await expect(current).toContainText('Service')
 })
+
+test('narrow mobile request flow keeps the active stage visible while stepping', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile regression')
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+
+  for (const width of [320, 400]) {
+    await page.setViewportSize({ width, height: 780 })
+    const { lab, current } = await openRequestFlow(page)
+    const activeFits = () => lab.locator('.flow-track').evaluate((track) => {
+      const active = track.querySelector('[aria-current="step"]')
+      const viewport = track.getBoundingClientRect()
+      const node = active.getBoundingClientRect()
+      return node.left >= viewport.left - 1 && node.right <= viewport.right + 1
+    })
+
+    await lab.getByRole('button', { name: /Önceki/ }).click()
+    await expect(current).toContainText('Database')
+    await expect.poll(activeFits).toBe(true)
+
+    await lab.getByRole('button', { name: /Sonraki/ }).click()
+    await expect(current).toContainText('Browser')
+    await expect.poll(activeFits).toBe(true)
+
+    for (let step = 0; step < 4; step += 1) {
+      await lab.getByRole('button', { name: /Sonraki/ }).click()
+    }
+    await expect.poll(activeFits).toBe(true)
+  }
+})
+
+test('mobile autoplay follows the currently highlighted request stage', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile regression')
+  await page.setViewportSize({ width: 320, height: 780 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  const { lab, current } = await openRequestFlow(page)
+
+  await expect(current).toContainText('Service', { timeout: 10000 })
+  await expect.poll(() => lab.locator('.flow-track').evaluate((track) => {
+    const active = track.querySelector('[aria-current="step"]')?.getBoundingClientRect()
+    const viewport = track.getBoundingClientRect()
+    return Boolean(active && active.left >= viewport.left - 1 && active.right <= viewport.right + 1)
+  })).toBe(true)
+})
