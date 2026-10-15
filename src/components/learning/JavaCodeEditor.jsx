@@ -3,11 +3,11 @@ import { EditorState } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
 import { defaultHighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { java } from '@codemirror/lang-java'
-import { history, historyKeymap, indentMore, selectAll } from '@codemirror/commands'
+import { history, historyKeymap, indentMore, redo, selectAll } from '@codemirror/commands'
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 
 // CodeMirror only renders visible lines, even with thousands of blank lines.
-export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify, onEscape, onLimitReached, readDocumentRef, label, helpId, fragment }) {
+export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, onLimitReached, readDocumentRef, label, helpId, fragment }) {
   const mountRef = useRef(null)
   const viewRef = useRef(null)
   const callbacks = useRef({ onChange, onVerify, onEscape, onLimitReached })
@@ -49,6 +49,9 @@ export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify,
         { key: 'Mod-a', run: selectAll },
         { key: 'Tab', run: insertSpaces },
         { key: 'Escape', run: () => { callbacks.current.onEscape(); return true } },
+        // historyKeymap uses Mod-y on Linux/Windows and Mod-Shift-z on macOS.
+        // Support the familiar Shift-Z redo shortcut consistently everywhere.
+        { key: 'Mod-Shift-z', run: redo },
         ...historyKeymap,
       ]),
       EditorView.updateListener.of((update) => {
@@ -125,11 +128,9 @@ export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify,
   useLayoutEffect(() => {
     const editor = viewRef.current
     if (!editor || editor.view.state.doc.toString() === value) return
-    // Only explicit restore/reset revisions may replace CodeMirror state.
-    // React can commit an older local value after a newer editor transaction;
-    // syncing every value prop would roll back fast typing, paste or undo.
+    // External restore/reset must discard stale undo history.
     editor.view.setState(editor.makeState(value))
-  }, [syncVersion])
+  }, [value])
 
   return <div className="code-editor-shell" ref={mountRef} />
 }

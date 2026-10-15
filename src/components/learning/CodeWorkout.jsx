@@ -17,7 +17,6 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   const challenge = useMemo(() => buildCodePractice(lesson), [lesson])
   const initialAnswer = () => typeof savedDraft === 'string' ? savedDraft : challenge?.editableStarter ? challenge.starter : ''
   const [answer, setAnswer] = useState(initialAnswer)
-  const [editorSyncVersion, setEditorSyncVersion] = useState(0)
   // CodeMirror sends document changes synchronously. A verification click can
   // arrive before React commits that change, so keep the latest text in a ref.
   const answerRef = useRef(answer)
@@ -25,7 +24,6 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   // have committed the most recent editor change yet.
   const readEditorDocumentRef = useRef(null)
   const latestLocalDraftTimestamp = useRef(0)
-  const savedDraftSyncReady = useRef(false)
   const [checked, setChecked] = useState(false)
   const [checkedRequirements, setCheckedRequirements] = useState(null)
   const [revealed, setRevealed] = useState(false)
@@ -37,16 +35,21 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   const uncheckedRequirements = useMemo(() => challenge ? evaluateCodeRequirements('', challenge) : null, [challenge])
   const syntaxTemplates = useMemo(() => challenge ? getSyntaxTemplates(challenge) : [], [challenge])
 
-  useEffect(() => () => { verificationId.current += 1 }, [])
+  useEffect(() => {
+    verificationId.current += 1
+    latestLocalDraftTimestamp.current = 0
+    const restored = initialAnswer()
+    answerRef.current = restored
+    setAnswer(restored)
+    setChecked(false)
+    setCheckedRequirements(null)
+    setRevealed(false)
+    setLimitReached(false)
+    setSyntaxResult(null)
+    return () => { verificationId.current += 1 }
+  }, [lesson.id, challenge?.editableStarter, challenge?.starter])
 
   useEffect(() => {
-    // Initial state already comes from savedDraft/starter. Skipping the first
-    // effect prevents a slow mount from overwriting text entered immediately
-    // after the editor becomes visible.
-    if (!savedDraftSyncReady.current) {
-      savedDraftSyncReady.current = true
-      return
-    }
     const restoredAnswer = initialAnswer()
     // The parent batches React updates for locally saved drafts. Never let an
     // older local snapshot overwrite text entered after that snapshot.
@@ -56,7 +59,6 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
     verificationId.current += 1
     answerRef.current = restoredAnswer
     setAnswer(restoredAnswer)
-    setEditorSyncVersion((version) => version + 1)
     setChecked(false)
     setCheckedRequirements(null)
     setRevealed(false)
@@ -177,7 +179,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
         </div>
         <div><small>{isFragmentExercise ? 'EKSİK İFADE' : 'SENİN KODUN'}</small>
           <Suspense fallback={<div className="code-editor-shell code-editor-loading" role="status">Java editörü yükleniyor…</div>}>
-            <JavaCodeEditor key={lesson.id} value={answer} syncVersion={editorSyncVersion} onChange={updateAnswer} onVerify={() => void verify()} onEscape={leaveEditor} onLimitReached={() => setLimitReached(true)} readDocumentRef={readEditorDocumentRef} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
+            <JavaCodeEditor key={lesson.id} value={answer} onChange={updateAnswer} onVerify={() => void verify()} onEscape={leaveEditor} onLimitReached={() => setLimitReached(true)} readDocumentRef={readEditorDocumentRef} label={`${lesson.title} kod editörü`} helpId={editorHelpId} fragment={isFragmentExercise} />
           </Suspense>
           <div className="code-editor-count" aria-label="Kod uzunluğu">{answer.length.toLocaleString('tr-TR')} / {MAX_CODE_DRAFT_LENGTH.toLocaleString('tr-TR')} karakter</div>
           {limitReached && <p className="code-editor-limit-alert" role="status">20.000 karakter sınırı nedeniyle ekleme engellendi. Yer açmak için kodu kısalt.</p>}
@@ -192,11 +194,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
       {challenge.hint && <details className="code-workout-hint"><summary>İpucu göster</summary><p>{challenge.hint}</p></details>}
       <div className="code-workout-actions" ref={actionsRef} role="group" aria-label="Kod çalışması eylemleri" tabIndex={-1}>
         <button className="complete-button" onClick={verify} disabled={!answer.trim() || syntaxResult?.checking}>{syntaxResult?.checking ? 'Kontrol ediliyor…' : 'Kodu kontrol et'}</button>
-        {challenge.editableStarter && <button className="reveal" onClick={() => {
-          updateAnswer(challenge.starter)
-          setEditorSyncVersion((version) => version + 1)
-          setRevealed(false)
-        }}>Baştan başla</button>}
+        {challenge.editableStarter && <button className="reveal" onClick={() => { updateAnswer(challenge.starter); setRevealed(false) }}>Baştan başla</button>}
         <button className="reveal" onClick={() => setRevealed((value) => !value)}>{revealed ? 'Çözümü gizle' : 'Örnek çözümü göster'}</button>
       </div>
       {revealed && <p className="code-scroll-help code-solution-help">Örnek çözümde uzun satırları yana kaydır.</p>}
