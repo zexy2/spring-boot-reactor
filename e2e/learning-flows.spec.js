@@ -705,7 +705,10 @@ test('restoring a newer JSON code draft updates an open editor before the next e
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(restoredDraft)
 
   const editedDraft = `${restoredDraft}\n// edited after restore`
-  await editor.fill(editedDraft)
+  await editor.focus()
+  await editor.press('ControlOrMeta+a')
+  await page.keyboard.insertText(editedDraft)
+  await expectCode(editor, editedDraft)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(editedDraft)
   await page.reload()
   await openLearningPhase(page, 1)

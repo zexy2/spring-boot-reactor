@@ -146,6 +146,35 @@ test('native clipboard paste preserves a selected multiline draft, undo and save
   await expectCode(editor, replacement)
 })
 
+test('Ctrl+Shift+Z is captured as exactly one redo transaction', async ({ page }) => {
+  const editor = await openEditor(page)
+  const initial = 'class Demo { int old = 1; }'
+  const replacement = 'class Demo { int value = 2; }'
+  await editor.fill(initial)
+  await editor.focus()
+  await editor.press('ControlOrMeta+a')
+  await page.keyboard.insertText(replacement)
+  await expectCode(editor, replacement)
+  await editor.press('ControlOrMeta+z')
+  await expectCode(editor, initial)
+
+  const shortcut = await editor.evaluate((content) => {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Z',
+      code: 'KeyZ',
+      ctrlKey: true,
+      shiftKey: true,
+    })
+    const dispatchResult = content.dispatchEvent(event)
+    return { dispatchResult, prevented: event.defaultPrevented }
+  })
+
+  expect(shortcut).toEqual({ dispatchResult: false, prevented: true })
+  await expectCode(editor, replacement)
+})
+
 test('select-all and multiline replacement include offscreen code on mobile and desktop', async ({ page }) => {
   const editor = await openEditor(page)
   const initial = `class LongDraft {\n${'  int oldValue;\n'.repeat(1000)}}`
