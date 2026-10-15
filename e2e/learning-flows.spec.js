@@ -48,6 +48,34 @@ async function importBackup(page, backup, data) {
   await expect(backup.getByRole('status')).toContainText('birleştirildi')
 }
 
+test('service discovery keeps the last request result stable as instance health changes', async ({ page }) => {
+  await page.goto('?lesson=service-discovery-load-balancing')
+  await openLearningPhase(page, 1)
+  const lab = page.locator('.arcade-balancer')
+  await expect(lab).toBeVisible()
+  const target = lab.locator('.route-target')
+
+  await lab.getByRole('button', { name: '1 request gönder' }).click()
+  await expect(target).toContainText('P1')
+  await expect(target).toContainText('200 OK')
+
+  await lab.locator('.balancer-instances > div').first().getByRole('button', { name: 'Process’i düşür' }).click()
+  await expect(target).toContainText('200 OK')
+  await expect(lab.locator('.discovery-box')).toContainText('P1')
+  await expect(lab.locator('.discovery-box')).toContainText('güncel olmayabilir')
+
+  // Registry is stale until health check. Routing P1 again must now fail.
+  for (let i = 0; i < 3; i += 1) await lab.getByRole('button', { name: '1 request gönder' }).click()
+  await expect(target).toContainText('P1')
+  await expect(target).toContainText('FAILED')
+  await lab.getByRole('button', { name: 'Health check çalıştır' }).click()
+  await expect(target).toContainText('FAILED')
+
+  await lab.getByRole('button', { name: '1 request gönder' }).click()
+  await expect(target).toContainText('P2')
+  await expect(target).toContainText('200 OK')
+})
+
 test('opening a lesson link directly and navigating back works', async ({ page }) => {
   await page.goto('./')
   await expect(page.getByRole('main')).toBeVisible()

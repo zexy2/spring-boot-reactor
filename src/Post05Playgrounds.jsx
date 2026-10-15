@@ -828,8 +828,7 @@ function BalancerGame({ lesson, spec }) {
   const candidates = balancer.instances.filter((instance) => instance.registered)
   const stale = balancer.instances.filter((instance) => instance.registered !== (instance.processUp && instance.ready))
   const warming = balancer.instances.filter((instance) => instance.processUp && !instance.ready)
-  const lastInstance = balancer.instances.find((instance) => instance.id === balancer.lastRoute)
-  const lastFailed = balancer.lastRoute === 'NO_INSTANCE' || (lastInstance && (!lastInstance.processUp || !lastInstance.ready))
+  const lastFailed = balancer.lastRouteSucceeded === false
   const maxRequests = Math.max(...balancer.instances.map((instance) => instance.requests), 1)
   const apply = (fn) => setBalancer((state) => fn(state))
   const footer = stale.length
@@ -865,7 +864,7 @@ function BalancerGame({ lesson, spec }) {
     <div className="balancer-flow" aria-label="Discovery ve load balancing akışı">
       <div><small>CLIENT</small><strong>GET /orders</strong><span>request #{balancer.totalRequests + 1}</span></div>
       <i>→</i>
-      <div className="discovery-box"><small>SERVICE DISCOVERY · READY</small><strong>{candidates.length ? candidates.map((instance) => instance.id).join(', ') : 'NO INSTANCE'}</strong><span>Health check READY adayları verir</span></div>
+      <div className="discovery-box"><small>SERVICE DISCOVERY · REGISTRY</small><strong>{candidates.length ? candidates.map((instance) => instance.id).join(', ') : 'NO INSTANCE'}</strong><span>Son health check kaydı; güncel olmayabilir</span></div>
       <i>→</i>
       <div className="round-robin-box"><small>LOAD BALANCER</small><strong>ROUND ROBIN</strong><span>Adaylardan birini seçer</span></div>
       <i>→</i>
