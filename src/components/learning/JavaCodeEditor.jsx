@@ -7,7 +7,7 @@ import { history, historyKeymap, indentMore, selectAll } from '@codemirror/comma
 import { MAX_CODE_DRAFT_LENGTH } from '../../learning/progressTransfer'
 
 // CodeMirror only renders visible lines, even with thousands of blank lines.
-export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, onLimitReached, readDocumentRef, label, helpId, fragment }) {
+export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify, onEscape, onLimitReached, readDocumentRef, label, helpId, fragment }) {
   const mountRef = useRef(null)
   const viewRef = useRef(null)
   const callbacks = useRef({ onChange, onVerify, onEscape, onLimitReached })
@@ -125,9 +125,11 @@ export default function JavaCodeEditor({ value, onChange, onVerify, onEscape, on
   useLayoutEffect(() => {
     const editor = viewRef.current
     if (!editor || editor.view.state.doc.toString() === value) return
-    // External restore/reset must discard stale undo history.
+    // Only explicit restore/reset revisions may replace CodeMirror state.
+    // React can commit an older local value after a newer editor transaction;
+    // syncing every value prop would roll back fast typing, paste or undo.
     editor.view.setState(editor.makeState(value))
-  }, [value])
+  }, [syncVersion])
 
   return <div className="code-editor-shell" ref={mountRef} />
 }
