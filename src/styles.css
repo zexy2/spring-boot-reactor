@@ -894,6 +894,9 @@ body::before {
 
 .daily-plan { border: 1px solid rgba(255,180,91,.34); background: linear-gradient(135deg, rgba(255,180,91,.055), rgba(131,183,255,.025)); padding: 22px; position: relative; overflow: hidden; }
 .daily-plan::after { content: 'TODAY'; position: absolute; right: -8px; top: -18px; color: rgba(255,180,91,.05); font: 700 clamp(54px, 8vw, 100px) 'IBM Plex Mono', monospace; letter-spacing: -.08em; pointer-events: none; }
+@media (max-width: 600px) {
+  .daily-plan::after { content: none; }
+}
 .daily-plan-head { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .daily-plan-head h2 { margin: 9px 0 6px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.04em; }
 .daily-plan-head p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
@@ -2513,6 +2516,22 @@ footer strong { color: var(--signal); }
 @media (max-width: 760px) {
   .arcade-breaker .breaker-config { grid-template-columns: minmax(0,1fr); }
   .arcade-breaker .breaker-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 520px) {
+  .arcade-breaker .breaker-stage { grid-template-columns: minmax(0,1fr); min-height: 0; }
+  .arcade-breaker .breaker-switch { grid-column: 1; grid-row: 2; padding-bottom: 26px; }
+  .arcade-breaker .failure-pips {
+    position: relative;
+    grid-column: 1;
+    grid-row: 2;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    align-self: end;
+    justify-self: center;
+    width: min(120px, 60%);
+    margin-bottom: 14px;
+  }
 }
 @media (max-width: 380px) {
   .arcade-breaker .breaker-history > div > span { grid-template-columns: 32px minmax(0,1fr); }

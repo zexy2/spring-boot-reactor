@@ -81,8 +81,13 @@ test('broker re-delivers lost ACK without charging twice when idempotency is on'
   await openLearningPhase(page, 1)
   const lab = page.locator('.arcade-broker')
   await expect(lab).toBeVisible()
+  const log = lab.getByRole('log', { name: 'Broker olay günlüğü' })
+  await expect(log).toBeAttached()
+  await expect(log).toBeEmpty()
+  await expect(log).toHaveAttribute('aria-live', 'polite')
 
   await lab.getByRole('button', { name: '1 · OrderCreated yayınla' }).click()
+  await expect(log).toContainText('EVT-001 yayınlandı')
   await lab.getByRole('button', { name: '2 · Mesajı teslim et' }).click()
   await lab.getByRole('button', { name: 'Sonraki ACK normal' }).click()
   await lab.getByRole('button', { name: '3 · İşle ve ACK dene' }).click()
@@ -98,7 +103,7 @@ test('broker re-delivers lost ACK without charging twice when idempotency is on'
   await expect(metric('ACK ALINDI')).toHaveText('1')
   await expect(metric('DUPLICATE ENGELLENDİ')).toHaveText('1')
   await expect(lab.locator('.broker-message-stack')).toContainText('Kuyruk boş')
-  await expect(lab.getByRole('log', { name: 'Broker olay günlüğü' })).toContainText('ACK')
+  await expect(log).toContainText('ACK')
 })
 
 test('saga retains charged money through failed refund and settles after recovery', async ({ page }) => {
@@ -106,8 +111,12 @@ test('saga retains charged money through failed refund and settles after recover
   await openLearningPhase(page, 1)
   const lab = page.locator('.arcade-saga')
   await expect(lab).toBeVisible()
+  const scenario = lab.locator('.saga-scenario [role="status"]')
+  await expect(scenario).toHaveAttribute('aria-atomic', 'true')
+  await expect(scenario).toContainText('IDLE')
 
   await lab.getByRole('button', { name: /Sipariş oluştur/ }).click()
+  await expect(scenario).toContainText('PAYMENT')
   await lab.getByRole('button', { name: /Ödemeyi al/ }).click()
   await expect(lab.locator('.saga-outbox')).toContainText('Event DB içinde bekliyor')
   await lab.getByRole('button', { name: /Outbox yayınını dene/ }).click()
@@ -117,6 +126,7 @@ test('saga retains charged money through failed refund and settles after recover
   await lab.getByRole('button', { name: /Refund UP/ }).click()
   await lab.getByRole('button', { name: /İadeyi dene/ }).click()
   await expect(lab.locator('.saga-scenario')).toContainText('COMPENSATION_FAILED')
+  await expect(scenario).toContainText('Servisi açıp aynı compensation adımını tekrar dene')
   await expect(lab.locator('.saga-services')).toContainText('1 tahsilat / 0 iade')
 
   await lab.getByRole('button', { name: /Refund DOWN/ }).click()
@@ -124,6 +134,7 @@ test('saga retains charged money through failed refund and settles after recover
   await expect(lab.locator('.saga-services')).toContainText('REFUNDED')
   await expect(lab.locator('.saga-services')).toContainText('1 tahsilat / 1 iade')
   await expect(lab.locator('.saga-scenario')).toContainText('CANCELLED')
+  await expect(scenario).toContainText('Bütün ödeme etkileri telafi edildi')
   await expect(lab.locator('.saga-projection')).toContainText('Read model geride')
   await lab.getByRole('button', { name: /Read model'i senkronize et/ }).click()
   await expect(lab.locator('.saga-projection')).toContainText('Projeksiyon güncel')
@@ -134,12 +145,15 @@ test('circuit breaker blocks traffic, probes once and recovers only after a heal
   await openLearningPhase(page, 1)
   const lab = page.locator('.arcade-breaker')
   const circuit = lab.locator('.breaker-switch strong')
+  const circuitStatus = lab.getByRole('status')
+  await expect(circuitStatus).toHaveAttribute('aria-live', 'polite')
   const send = lab.getByRole('button', { name: 'Order isteği gönder' })
   const metric = (label) => lab.locator('.breaker-stats > span').filter({ has: page.locator('small', { hasText: label }) }).locator('strong')
 
   await expect(circuit).toHaveText('CLOSED')
   for (let i = 0; i < 3; i += 1) await send.click()
   await expect(circuit).toHaveText('OPEN')
+  await expect(circuitStatus).toContainText('Başarısız istek: 3/3')
   await expect(metric('ORDER İSTEKLERİ')).toHaveText('3')
   await expect(metric('PAYMENT ÇAĞRILARI')).toHaveText('6')
 
@@ -151,6 +165,7 @@ test('circuit breaker blocks traffic, probes once and recovers only after a heal
 
   await lab.getByRole('button', { name: 'Cooldown süresi doldu' }).click()
   await expect(circuit).toHaveText('HALF_OPEN')
+  await expect(circuitStatus).toContainText('HALF_OPEN')
   await lab.getByRole('button', { name: '503 / Down' }).click()
   await lab.getByRole('button', { name: 'Tek probe gönder' }).click()
   await expect(circuit).toHaveText('OPEN')
@@ -161,6 +176,7 @@ test('circuit breaker blocks traffic, probes once and recovers only after a heal
   await lab.getByRole('button', { name: 'Sağlıklı · 250ms' }).click()
   await lab.getByRole('button', { name: 'Tek probe gönder' }).click()
   await expect(circuit).toHaveText('CLOSED')
+  await expect(circuitStatus).toContainText('CLOSED')
   await expect(metric('PAYMENT ÇAĞRILARI')).toHaveText('8')
   await expect(lab.locator('.breaker-trace')).toContainText('Probe başarılı')
 })
@@ -870,6 +886,62 @@ test('microservice simulators keep primary actions inside narrow mobile viewport
       expect(bounds.height, `${lesson} action collapsed at ${width}px`).toBeGreaterThanOrEqual(40)
     }
   }
+})
+
+test('circuit breaker diagram stays legible without overlapping its nodes on narrow phones', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile legibility regression')
+  for (const width of [320, 375, 400]) {
+    await page.setViewportSize({ width, height: 780 })
+    await page.goto('?lesson=microservice-resilience')
+    await openLearningPhase(page, 1)
+    const geometry = await page.locator('.arcade-breaker .breaker-stage').evaluate((stage) => {
+      const cards = Array.from(stage.children).filter((element) => !element.classList.contains('failure-pips'))
+      const boxes = cards.map((card) => {
+        const rect = card.getBoundingClientRect()
+        return { width: rect.width, top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, clipped: card.scrollWidth > card.clientWidth + 1 }
+      })
+      const pips = stage.querySelector('.failure-pips').getBoundingClientRect()
+      const breakerLabel = stage.querySelector('.breaker-switch strong').getBoundingClientRect()
+      return { boxes, pipsTop: pips.top, breakerLabelBottom: breakerLabel.bottom, pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }
+    })
+    expect(geometry.boxes, `Expected three service nodes at ${width}px`).toHaveLength(3)
+    expect(geometry.pageOverflow, `Page overflow at ${width}px`).toBeLessThanOrEqual(1)
+    for (const [index, box] of geometry.boxes.entries()) {
+      expect(box.width, `Node ${index} too narrow at ${width}px`).toBeGreaterThan(160)
+      expect(box.clipped, `Node ${index} clips content at ${width}px`).toBe(false)
+      if (index > 0) expect(box.top, `Nodes ${index - 1}/${index} overlap at ${width}px`).toBeGreaterThanOrEqual(geometry.boxes[index - 1].bottom)
+    }
+    expect(geometry.pipsTop, `Failure indicators cover circuit state at ${width}px`).toBeGreaterThan(geometry.breakerLabelBottom)
+  }
+})
+
+test('mobile daily study heading is unobstructed by desktop decoration', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile decoration regression')
+  for (const width of [320, 400]) {
+    await page.setViewportSize({ width, height: 780 })
+    await page.goto('./')
+    await expect(page.locator('.daily-plan h2')).toBeVisible()
+    expect(await page.locator('.daily-plan').evaluate((element) => getComputedStyle(element, '::after').content)).toBe('none')
+  }
+})
+
+test('simulator controls expose visible keyboard focus and reduced-motion preference', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('?lesson=microservice-resilience')
+  await openLearningPhase(page, 1)
+  const first = page.locator('.arcade-breaker .breaker-control button').first()
+  await first.focus()
+  await page.keyboard.press('Tab')
+  const focused = await page.evaluate(() => {
+    const element = document.activeElement
+    const style = getComputedStyle(element)
+    return { inSimulator: !!element.closest('.arcade-breaker'), tag: element.tagName, outlineStyle: style.outlineStyle, outlineWidth: parseFloat(style.outlineWidth), reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches }
+  })
+  expect(focused.reducedMotion).toBe(true)
+  expect(focused.inSimulator).toBe(true)
+  expect(focused.tag).toBe('BUTTON')
+  expect(focused.outlineStyle).toBe('solid')
+  expect(focused.outlineWidth).toBeGreaterThanOrEqual(2)
 })
 
 

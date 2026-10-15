@@ -688,7 +688,7 @@ function BreakerGame({ lesson, spec }) {
     </div>
     <div className="breaker-stage">
       <div className="breaker-caller"><small>CALLER</small><strong>Order</strong><span aria-live="polite">{last?.message || 'Request bekleniyor'}</span></div>
-      <motion.div className={`breaker-switch ${circuit === 'OPEN' ? 'open' : circuit === 'HALF_OPEN' ? 'half-open' : ''}`} animate={{ rotate: circuit === 'OPEN' ? -7 : circuit === 'HALF_OPEN' ? -3 : 0 }}><small>CIRCUIT BREAKER</small><strong>{circuit}</strong><span>Başarısız istek: {consecutiveFailures}/3</span></motion.div>
+      <motion.div role="status" aria-live="polite" aria-atomic="true" className={`breaker-switch ${circuit === 'OPEN' ? 'open' : circuit === 'HALF_OPEN' ? 'half-open' : ''}`} animate={{ rotate: circuit === 'OPEN' ? -7 : circuit === 'HALF_OPEN' ? -3 : 0 }}><small>CIRCUIT BREAKER</small><strong>{circuit}</strong><span>Başarısız istek: {consecutiveFailures}/3</span></motion.div>
       <div className={dependency === 'healthy' ? 'healthy' : 'flaky'}><small>DEPENDENCY</small><strong>Payment</strong><span>{dependency === 'healthy' ? '250ms' : dependency === 'slow' ? '1200ms' : dependency === 'flaky' ? '1200 / 350ms' : '503 · 80ms'}</span></div>
       <div className="failure-pips" aria-label={`Başarısız istek sayısı: ${consecutiveFailures} / 3`}>{[0, 1, 2].map((i) => <i key={i} className={i < consecutiveFailures ? 'hot' : ''} />)}</div>
     </div>
@@ -759,8 +759,8 @@ function BrokerGame({ lesson, spec }) {
     <div className="broker-dead-letter"><div><small>DEAD LETTER QUEUE / DLQ</small><strong>{broker.dlq.length} başarısız mesaj</strong><p>{broker.dlq.length ? broker.dlq.map((event) => `${event.id} (${event.attempts} deneme)`).join(' · ') : `Mesaj ${MAX_BROKER_DELIVERIES} başarısız teslimattan sonra buraya alınır.`}</p></div>
       <button disabled={!broker.dlq.length} onClick={() => setBroker(redriveDeadLetter)}>DLQ'dan geri al</button></div>
     <div className="broker-log"><small>EVENT / ACK / RETRY ZAMAN ÇİZELGESİ</small>
-      {broker.log.length ? <ol role="log" aria-label="Broker olay günlüğü" aria-live="polite" aria-relevant="additions" aria-atomic="false">{broker.log.map((entry) => <li key={entry.id} className={`broker-event-${entry.tone}`}><b>{String(entry.id).padStart(2, '0')}</b><span>{entry.message}</span></li>)}</ol>
-        : <p>İlk event'i yayınla. Consumer kapalıyken mesaj biriktirmeyi, sonra ACK kaybı ile duplicate'i dene.</p>}
+      <ol role="log" aria-label="Broker olay günlüğü" aria-live="polite" aria-relevant="additions" aria-atomic="false">{broker.log.map((entry) => <li key={entry.id} className={`broker-event-${entry.tone}`}><b>{String(entry.id).padStart(2, '0')}</b><span>{entry.message}</span></li>)}</ol>
+      {broker.log.length === 0 && <p>İlk event'i yayınla. Consumer kapalıyken mesaj biriktirmeyi, sonra ACK kaybı ile duplicate'i dene.</p>}
     </div>
   </ArcadeFrame>
 }
@@ -789,7 +789,7 @@ function SagaGame({ lesson, spec }) {
   const apply = (fn) => setSaga((state) => fn(state))
   return <ArcadeFrame lesson={lesson} {...spec} className="arcade-saga" footer={footer}>
     <div className="saga-scenario">
-      <div><small>AKTİF ADIM · {saga.phase.toUpperCase()}</small><p aria-live="polite">{next}</p></div>
+      <div role="status" aria-live="polite" aria-atomic="true"><small>AKTİF ADIM · {saga.phase.toUpperCase()}</small><p>{next}</p></div>
       <button onClick={reset}>Simülasyonu sıfırla ↺</button>
     </div>
     <div className="saga-actions" aria-label="Saga işlem adımları">
