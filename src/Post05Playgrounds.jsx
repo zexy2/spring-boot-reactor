@@ -759,7 +759,7 @@ function BrokerGame({ lesson, spec }) {
     <div className="broker-dead-letter"><div><small>DEAD LETTER QUEUE / DLQ</small><strong>{broker.dlq.length} başarısız mesaj</strong><p>{broker.dlq.length ? broker.dlq.map((event) => `${event.id} (${event.attempts} deneme)`).join(' · ') : `Mesaj ${MAX_BROKER_DELIVERIES} başarısız teslimattan sonra buraya alınır.`}</p></div>
       <button disabled={!broker.dlq.length} onClick={() => setBroker(redriveDeadLetter)}>DLQ'dan geri al</button></div>
     <div className="broker-log"><small>EVENT / ACK / RETRY ZAMAN ÇİZELGESİ</small>
-      {broker.log.length ? <ol>{broker.log.map((entry) => <li key={entry.id} className={`broker-event-${entry.tone}`}><b>{String(entry.id).padStart(2, '0')}</b><span>{entry.message}</span></li>)}</ol>
+      {broker.log.length ? <ol role="log" aria-label="Broker olay günlüğü" aria-live="polite" aria-relevant="additions" aria-atomic="false">{broker.log.map((entry) => <li key={entry.id} className={`broker-event-${entry.tone}`}><b>{String(entry.id).padStart(2, '0')}</b><span>{entry.message}</span></li>)}</ol>
         : <p>İlk event'i yayınla. Consumer kapalıyken mesaj biriktirmeyi, sonra ACK kaybı ile duplicate'i dene.</p>}
     </div>
   </ArcadeFrame>

@@ -76,6 +76,95 @@ test('service discovery keeps the last request result stable as instance health 
   await expect(target).toContainText('200 OK')
 })
 
+test('broker re-delivers lost ACK without charging twice when idempotency is on', async ({ page }) => {
+  await page.goto('?lesson=async-messaging')
+  await openLearningPhase(page, 1)
+  const lab = page.locator('.arcade-broker')
+  await expect(lab).toBeVisible()
+
+  await lab.getByRole('button', { name: '1 · OrderCreated yayınla' }).click()
+  await lab.getByRole('button', { name: '2 · Mesajı teslim et' }).click()
+  await lab.getByRole('button', { name: 'Sonraki ACK normal' }).click()
+  await lab.getByRole('button', { name: '3 · İşle ve ACK dene' }).click()
+
+  const metric = (label) => lab.locator('.broker-metrics > div').filter({ has: page.locator('small', { hasText: label }) }).locator('strong')
+  await expect(metric('ÖDEME ETKİSİ')).toHaveText('1')
+  await expect(metric('ACK ALINDI')).toHaveText('0')
+  await expect(lab.locator('.broker-message-stack')).toContainText('EVT-001')
+
+  await lab.getByRole('button', { name: '2 · Mesajı teslim et' }).click()
+  await lab.getByRole('button', { name: '3 · İşle ve ACK dene' }).click()
+  await expect(metric('ÖDEME ETKİSİ')).toHaveText('1')
+  await expect(metric('ACK ALINDI')).toHaveText('1')
+  await expect(metric('DUPLICATE ENGELLENDİ')).toHaveText('1')
+  await expect(lab.locator('.broker-message-stack')).toContainText('Kuyruk boş')
+  await expect(lab.getByRole('log', { name: 'Broker olay günlüğü' })).toContainText('ACK')
+})
+
+test('saga retains charged money through failed refund and settles after recovery', async ({ page }) => {
+  await page.goto('?lesson=distributed-consistency')
+  await openLearningPhase(page, 1)
+  const lab = page.locator('.arcade-saga')
+  await expect(lab).toBeVisible()
+
+  await lab.getByRole('button', { name: /Sipariş oluştur/ }).click()
+  await lab.getByRole('button', { name: /Ödemeyi al/ }).click()
+  await expect(lab.locator('.saga-outbox')).toContainText('Event DB içinde bekliyor')
+  await lab.getByRole('button', { name: /Outbox yayınını dene/ }).click()
+  await lab.getByRole('button', { name: /Stok kontrolü/ }).click()
+  await expect(lab.locator('.saga-scenario')).toContainText('COMPENSATION')
+
+  await lab.getByRole('button', { name: /Refund UP/ }).click()
+  await lab.getByRole('button', { name: /İadeyi dene/ }).click()
+  await expect(lab.locator('.saga-scenario')).toContainText('COMPENSATION_FAILED')
+  await expect(lab.locator('.saga-services')).toContainText('1 tahsilat / 0 iade')
+
+  await lab.getByRole('button', { name: /Refund DOWN/ }).click()
+  await lab.getByRole('button', { name: /İadeyi dene/ }).click()
+  await expect(lab.locator('.saga-services')).toContainText('REFUNDED')
+  await expect(lab.locator('.saga-services')).toContainText('1 tahsilat / 1 iade')
+  await expect(lab.locator('.saga-scenario')).toContainText('CANCELLED')
+  await expect(lab.locator('.saga-projection')).toContainText('Read model geride')
+  await lab.getByRole('button', { name: /Read model'i senkronize et/ }).click()
+  await expect(lab.locator('.saga-projection')).toContainText('Projeksiyon güncel')
+})
+
+test('circuit breaker blocks traffic, probes once and recovers only after a healthy response', async ({ page }) => {
+  await page.goto('?lesson=microservice-resilience')
+  await openLearningPhase(page, 1)
+  const lab = page.locator('.arcade-breaker')
+  const circuit = lab.locator('.breaker-switch strong')
+  const send = lab.getByRole('button', { name: 'Order isteği gönder' })
+  const metric = (label) => lab.locator('.breaker-stats > span').filter({ has: page.locator('small', { hasText: label }) }).locator('strong')
+
+  await expect(circuit).toHaveText('CLOSED')
+  for (let i = 0; i < 3; i += 1) await send.click()
+  await expect(circuit).toHaveText('OPEN')
+  await expect(metric('ORDER İSTEKLERİ')).toHaveText('3')
+  await expect(metric('PAYMENT ÇAĞRILARI')).toHaveText('6')
+
+  await send.click()
+  await expect(circuit).toHaveText('OPEN')
+  await expect(metric('ENGELLENEN İSTEK')).toHaveText('1')
+  await expect(metric('PAYMENT ÇAĞRILARI')).toHaveText('6')
+  await expect(lab.locator('.breaker-history')).toContainText('BLOCKED')
+
+  await lab.getByRole('button', { name: 'Cooldown süresi doldu' }).click()
+  await expect(circuit).toHaveText('HALF_OPEN')
+  await lab.getByRole('button', { name: '503 / Down' }).click()
+  await lab.getByRole('button', { name: 'Tek probe gönder' }).click()
+  await expect(circuit).toHaveText('OPEN')
+  await expect(metric('PAYMENT ÇAĞRILARI')).toHaveText('7')
+
+  await lab.getByRole('button', { name: 'Cooldown süresi doldu' }).click()
+  await expect(circuit).toHaveText('HALF_OPEN')
+  await lab.getByRole('button', { name: 'Sağlıklı · 250ms' }).click()
+  await lab.getByRole('button', { name: 'Tek probe gönder' }).click()
+  await expect(circuit).toHaveText('CLOSED')
+  await expect(metric('PAYMENT ÇAĞRILARI')).toHaveText('8')
+  await expect(lab.locator('.breaker-trace')).toContainText('Probe başarılı')
+})
+
 test('opening a lesson link directly and navigating back works', async ({ page }) => {
   await page.goto('./')
   await expect(page.getByRole('main')).toBeVisible()
@@ -754,6 +843,32 @@ test('small mobile viewports avoid page-wide horizontal overflow', async ({ page
     await expect(page.getByRole('main')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow, `Unexpected horizontal overflow at ${width}px`).toBeLessThanOrEqual(1)
+  }
+})
+
+test('microservice simulators keep primary actions inside narrow mobile viewports', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile regression')
+  const scenarios = [
+    ['microservice-resilience', '.arcade-breaker .breaker-actions .sim-action'],
+    ['async-messaging', '.arcade-broker .broker-actionbar .sim-action'],
+    ['distributed-consistency', '.arcade-saga .saga-actions button'],
+  ]
+  for (const width of [320, 400]) {
+    await page.setViewportSize({ width, height: 780 })
+    for (const [lesson, actionSelector] of scenarios) {
+      await page.goto(`?lesson=${lesson}`)
+      await openLearningPhase(page, 1)
+      const action = page.locator(actionSelector).first()
+      await expect(action).toBeVisible()
+      const bounds = await action.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return { left: rect.left, right: rect.right, height: rect.height, pageWidth: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth }
+      })
+      expect(bounds.pageWidth - bounds.viewport, `${lesson} page overflow at ${width}px`).toBeLessThanOrEqual(1)
+      expect(bounds.left, `${lesson} action starts off screen at ${width}px`).toBeGreaterThanOrEqual(-1)
+      expect(bounds.right, `${lesson} action ends off screen at ${width}px`).toBeLessThanOrEqual(width + 1)
+      expect(bounds.height, `${lesson} action collapsed at ${width}px`).toBeGreaterThanOrEqual(40)
+    }
   }
 })
 
