@@ -2780,7 +2780,7 @@ function GuidedLearningLesson({ lesson, completed, status, learningRecordData, c
           <div className="guided-lab-divider"><span>ŞİMDİ SEN DENE</span><p>Önce kontrollü deney, sonra serbestçe kurcala.</p></div>
           <LessonLab lesson={lesson} />
           <MemoryGame lesson={lesson} />
-          <CodeWorkout lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} savedDraftUpdatedAt={learningRecordData.codeDraftUpdatedAt} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
+          <CodeWorkout key={lesson.id} lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} savedDraftUpdatedAt={learningRecordData.codeDraftUpdatedAt} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
           <DebugWorkout lesson={lesson} record={learningRecordData} onAttempt={onDebugAttempt} />
           <div className="phase-actions"><button type="button" className="reveal" onClick={() => selectPhase('understand')}>← Anla</button><button type="button" className="complete-button" onClick={() => selectPhase('recall')}>Hatırla / test et →</button></div>
         </div>

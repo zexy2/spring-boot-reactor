@@ -25,6 +25,7 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   // have committed the most recent editor change yet.
   const readEditorDocumentRef = useRef(null)
   const latestLocalDraftTimestamp = useRef(0)
+  const savedDraftSyncReady = useRef(false)
   const [checked, setChecked] = useState(false)
   const [checkedRequirements, setCheckedRequirements] = useState(null)
   const [revealed, setRevealed] = useState(false)
@@ -36,22 +37,16 @@ export default function CodeWorkout({ lesson, passed, onComplete, savedDraft, sa
   const uncheckedRequirements = useMemo(() => challenge ? evaluateCodeRequirements('', challenge) : null, [challenge])
   const syntaxTemplates = useMemo(() => challenge ? getSyntaxTemplates(challenge) : [], [challenge])
 
-  useEffect(() => {
-    verificationId.current += 1
-    latestLocalDraftTimestamp.current = 0
-    const restored = initialAnswer()
-    answerRef.current = restored
-    setAnswer(restored)
-    setEditorSyncVersion((version) => version + 1)
-    setChecked(false)
-    setCheckedRequirements(null)
-    setRevealed(false)
-    setLimitReached(false)
-    setSyntaxResult(null)
-    return () => { verificationId.current += 1 }
-  }, [lesson.id, challenge?.editableStarter, challenge?.starter])
+  useEffect(() => () => { verificationId.current += 1 }, [])
 
   useEffect(() => {
+    // Initial state already comes from savedDraft/starter. Skipping the first
+    // effect prevents a slow mount from overwriting text entered immediately
+    // after the editor becomes visible.
+    if (!savedDraftSyncReady.current) {
+      savedDraftSyncReady.current = true
+      return
+    }
     const restoredAnswer = initialAnswer()
     // The parent batches React updates for locally saved drafts. Never let an
     // older local snapshot overwrite text entered after that snapshot.
