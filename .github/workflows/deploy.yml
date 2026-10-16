@@ -41,6 +41,7 @@ jobs:
         run: npm run build
         env:
           DEPLOY_GITHUB_PAGES: 'true'
+      - run: npm run check:metadata
       - run: npm run check:bundle
       - name: Upload browser failure evidence
         if: failure()

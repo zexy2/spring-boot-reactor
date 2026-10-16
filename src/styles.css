@@ -1034,7 +1034,7 @@ body::before {
 .term-card:hover { border-top-color: var(--signal); background: rgba(255,180,91,.025); }
 .term-card code { display: inline-block; color: var(--signal); background: rgba(255,180,91,.08); padding: 4px 6px; font-size: 11px; }
 .term-card p { margin: 8px 0 0; color: #bdccdd; line-height: 1.5; font-size: 13px; }
-.term-card small { display: block; margin-top: 8px; color: #6d829a; font: 500 9px 'IBM Plex Mono', monospace; }
+.term-card small { display: block; margin-top: 8px; color: #829ab4; font: 500 9px 'IBM Plex Mono', monospace; }
 .prerequisite-section { border: 1px solid rgba(131,183,255,.3); background: rgba(131,183,255,.035); padding: 20px 22px; margin-bottom: 18px; }
 .prerequisite-section > p { margin: 10px 0 14px; color: var(--muted); font-size: 12px; }
 .prerequisite-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }

@@ -104,6 +104,7 @@ Terminalin gösterdiği yerel adrese (genellikle `http://localhost:5173`) git. C
 | `npm test` | Projenin Node.js testlerini çalıştırır. |
 | `npm run build` | Üretim dosyalarını `dist/` dizinine oluşturur. |
 | `npm run check:bundle` | `dist/assets` içindeki JS/CSS dosyalarının gzip boyutlarını production bütçelerine karşı doğrular. Önce `npm run build` gerekir. |
+| `npm run check:metadata` | Production build içindeki canonical, sosyal paylaşım metadata'sı, manifest, ikonlar, robots ve sitemap dosyalarını doğrular. Önce GitHub Pages taban yolu ile `npm run build` gerekir. |
 | `npm run check:security` | Production bağımlılıklarını `npm audit` ile high/critical açıklar için denetler. |
 | `npm run preview` | Oluşturulmuş üretim çıktısını yerel olarak önizler. |
 | `npm run test:java` | Depodaki 10 Java Core referans çözümünü JDK 21 ile derler ve davranış kontrollerinden geçirir. |
@@ -131,7 +132,7 @@ flowchart TD
 | `src/learning/` | Öğrenme durumu, alıştırma mantığı ve kavrama özel simülasyonlar. |
 | `src/Post05Playgrounds.jsx` | İleri konuların etkileşimli çalışma alanları. |
 | `tests/` | Öğrenme mantığı ve simülasyonları doğrulayan otomatik testler. |
-| `.github/workflows/deploy.yml` | PR'larda lint, production bağımlılık güvenliği, Node/Java/Spring testleri, Axe erişilebilirlik dahil masaüstü/mobil tarayıcı testleri, production derlemesi ve bundle bütçesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
+| `.github/workflows/deploy.yml` | PR'larda lint, production bağımlılık güvenliği, Node/Java/Spring testleri, Axe erişilebilirlik dahil masaüstü/mobil tarayıcı testleri, production derlemesi, web metadata doğrulaması ve bundle bütçesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
 
 **Teknoloji:** React, Vite, JavaScript, `java-parser`, Motion ve Node.js test çalıştırıcısı. Geliştirme ve CI tabanı Node.js 22'dir (`.nvmrc`, `engines.node`). GitHub Pages üzerinden statik olarak yayımlanır. Üretim derlemesinde Vite taban yolu `/spring-boot-reactor/` olarak ayarlanır.
 

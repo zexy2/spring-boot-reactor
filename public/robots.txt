@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://zexy2.github.io/spring-boot-reactor/sitemap.xml

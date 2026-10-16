@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Java Backend Öğrenme Atölyesi</title>
+  <desc id="desc">Java, Spring Boot, SQL, DDD ve DevOps için 14 aşamalı, 102 derslik interaktif öğrenme uygulaması.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#08101d"/>
+      <stop offset="1" stop-color="#0c2130"/>
+    </linearGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#2b435a" stroke-opacity=".28"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <path d="M0 624H1200" stroke="#4ad8cf" stroke-width="6"/>
+
+  <g transform="translate(72 74)">
+    <rect width="76" height="76" rx="8" fill="#101e2d" stroke="#ffb45b" stroke-width="3"/>
+    <path d="M0 0h22M0 0v22M76 76H54M76 76V54" stroke="#4ad8cf" stroke-width="6"/>
+    <text x="38" y="49" text-anchor="middle" fill="#ffb45b" font-family="monospace" font-size="27" font-weight="800">JB</text>
+    <text x="104" y="29" fill="#8daac0" font-family="monospace" font-size="17" font-weight="700" letter-spacing="3">ENGINEERING LEARNING LAB</text>
+    <text x="104" y="57" fill="#5f7890" font-family="monospace" font-size="15">INTERACTIVE · TURKISH · SELF-PACED</text>
+  </g>
+
+  <g transform="translate(72 245)" font-family="Arial, Helvetica, sans-serif" font-weight="900">
+    <text x="0" y="0" font-size="68" fill="#f0f5ff">JAVA BACKEND</text>
+    <text x="0" y="79" font-size="62" fill="#ffb45b">ÖĞRENME ATÖLYESİ</text>
+  </g>
+  <text x="74" y="382" fill="#a9bacb" font-family="Arial, Helvetica, sans-serif" font-size="25">Kavramı öğren. Gerçek senaryoda uygula. Hatırla ve geliştir.</text>
+
+  <g transform="translate(72 462)" font-family="monospace" font-weight="700">
+    <rect width="182" height="58" rx="4" fill="#13273a" stroke="#38556d"/>
+    <text x="91" y="36" text-anchor="middle" font-size="18" fill="#4ad8cf">14 AŞAMA</text>
+    <rect x="198" width="182" height="58" rx="4" fill="#13273a" stroke="#38556d"/>
+    <text x="289" y="36" text-anchor="middle" font-size="18" fill="#ffb45b">102 DERS</text>
+    <rect x="396" width="442" height="58" rx="4" fill="#13273a" stroke="#38556d"/>
+    <text x="617" y="36" text-anchor="middle" font-size="18" fill="#d8e4ef">JAVA · SPRING · SQL · DDD · DEVOPS</text>
+  </g>
+</svg>
