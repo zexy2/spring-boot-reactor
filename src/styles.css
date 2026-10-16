@@ -93,7 +93,7 @@ body::before {
 .roadmap-filters button { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 6px 7px; cursor: pointer; font: 500 8px 'IBM Plex Mono', monospace; }
 .roadmap-filters button:hover { border-color: var(--blue); color: var(--text); }
 .roadmap-filters button.active { border-color: var(--data); color: var(--data); background: rgba(110,231,216,.05); }
-.roadmap-result-count { color: #607994; font: 500 8px 'IBM Plex Mono', monospace; }
+.roadmap-result-count { color: #7891ac; font: 500 8px 'IBM Plex Mono', monospace; }
 .progress-backup { margin-top: 12px; border: 1px solid var(--line); background: #0a1828; padding: 10px; min-width: 0; }
 .progress-backup summary { cursor: pointer; color: var(--data); font: 600 10px/1.5 'IBM Plex Mono', monospace; }
 .progress-backup-actions { display: grid; gap: 8px; margin-top: 12px; }
@@ -118,7 +118,7 @@ body::before {
 .phase-head span { color: var(--data); font: 500 9px 'IBM Plex Mono', monospace; text-transform: uppercase; }
 .phase-head strong { color: var(--muted); font-size: 11px; font-weight: 600; }
 .phase-head .scope-badge { color: var(--signal); border: 1px solid rgba(255,180,91,.35); padding: 2px 5px; font: 600 7px 'IBM Plex Mono', monospace; letter-spacing: .08em; }
-.phase-head em { margin-left: auto; color: #58708a; font: 500 9px 'IBM Plex Mono', monospace; font-style: normal; }
+.phase-head em { margin-left: auto; color: #7891ac; font: 500 9px 'IBM Plex Mono', monospace; font-style: normal; }
 .lesson-link { width: 100%; display: grid; grid-template-columns: 14px minmax(0,1fr); gap: 7px; padding: 10px; border: 0; border-left: 2px solid transparent; background: transparent; color: var(--text); text-align: left; text-decoration: none; cursor: pointer; }
 .lesson-link:hover { background: rgba(131,183,255,.05); }
 .lesson-link:focus-visible { outline: 2px solid var(--data); outline-offset: -2px; }
@@ -1076,7 +1076,7 @@ body::before {
 .learning-phase-nav button:hover { border-color: var(--blue); }
 .learning-phase-nav button > span { grid-area: num; align-self: center; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--line); color: #7990aa; font: 700 10px 'IBM Plex Mono', monospace; }
 .learning-phase-nav button > strong { grid-area: label; color: #afc0d2; font: 700 10px 'IBM Plex Mono', monospace; letter-spacing: .08em; }
-.learning-phase-nav button > small { grid-area: note; margin-top: 3px; color: #627992; font: 500 9px 'IBM Plex Mono', monospace; }
+.learning-phase-nav button > small { grid-area: note; margin-top: 3px; color: #7891ac; font: 500 9px 'IBM Plex Mono', monospace; }
 .learning-phase-nav button.active { border-color: rgba(255,180,91,.55); background: rgba(255,180,91,.05); }
 .learning-phase-nav button.active > span { border-color: var(--signal); color: var(--signal); }
 .learning-phase-nav button.active > strong { color: var(--signal); }

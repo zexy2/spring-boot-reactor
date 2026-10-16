@@ -108,6 +108,7 @@ Terminalin gösterdiği yerel adrese (genellikle `http://localhost:5173`) git. C
 | `npm run preview` | Oluşturulmuş üretim çıktısını yerel olarak önizler. |
 | `npm run test:java` | Depodaki 10 Java Core referans çözümünü JDK 21 ile derler ve davranış kontrollerinden geçirir. |
 | `npm run test:spring` | Depodaki 9 Spring referans çözümünü gerçek Spring Boot bağımlılıklarıyla doğrular. |
+| `npm run test:a11y` | Ana öğrenme ekranı ve temsilî etkileşimli ders için Axe ile WCAG A/AA serious/critical ihlal taraması yapar. |
 | `npm run test:e2e` | GitHub Pages sürümünü önce yeniden derler, ardından masaüstü ve mobil Chromium'da sınar. İlk kullanımda `npx playwright install chromium` gerekir. |
 
 <a id="architecture"></a>
@@ -130,7 +131,7 @@ flowchart TD
 | `src/learning/` | Öğrenme durumu, alıştırma mantığı ve kavrama özel simülasyonlar. |
 | `src/Post05Playgrounds.jsx` | İleri konuların etkileşimli çalışma alanları. |
 | `tests/` | Öğrenme mantığı ve simülasyonları doğrulayan otomatik testler. |
-| `.github/workflows/deploy.yml` | PR'larda lint, production bağımlılık güvenliği, Node/Java/Spring testleri, masaüstü/mobil tarayıcı testleri, production derlemesi ve bundle bütçesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
+| `.github/workflows/deploy.yml` | PR'larda lint, production bağımlılık güvenliği, Node/Java/Spring testleri, Axe erişilebilirlik dahil masaüstü/mobil tarayıcı testleri, production derlemesi ve bundle bütçesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
 
 **Teknoloji:** React, Vite, JavaScript, `java-parser`, Motion ve Node.js test çalıştırıcısı. Geliştirme ve CI tabanı Node.js 22'dir (`.nvmrc`, `engines.node`). GitHub Pages üzerinden statik olarak yayımlanır. Üretim derlemesinde Vite taban yolu `/spring-boot-reactor/` olarak ayarlanır.
 

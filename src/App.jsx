@@ -778,7 +778,7 @@ function ProcessScenarioLab({ lesson }) {
       badge={`${solvedCount}/${scenarios.length} çözüldü`}
     >
       <div className="process-scenario">
-        <div className="process-scenario-progress" aria-label={`Senaryo ${activeIndex + 1}/${scenarios.length}; ${solvedCount} tamamlandı`}>
+        <div className="process-scenario-progress" role="progressbar" aria-label={`Tamamlanan senaryo; aktif senaryo ${activeIndex + 1}/${scenarios.length}`} aria-valuemin={0} aria-valuemax={scenarios.length} aria-valuenow={solvedCount}>
           {scenarios.map((item, index) => (
             <span
               key={item.prompt}
@@ -3378,7 +3378,7 @@ function App() {
     <main className={focus ? 'app focus-mode' : 'app'}>
       <a className="skip-link" href="#learning-area">Aktif derse geç</a>
       <header className="topbar">
-        <button className="brand" onClick={() => navigateToLesson(lessons[0].id)} aria-label="İlk derse git">
+        <button className="brand" onClick={() => navigateToLesson(lessons[0].id)} title="İlk derse git">
           <span className="brand-mark">JB</span>
           <span><strong>JAVA BACKEND</strong><small>ÖĞRENME ATÖLYESİ / {lessons.length} DERS</small></span>
         </button>
