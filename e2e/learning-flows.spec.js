@@ -5,6 +5,7 @@ import { codePracticeLibrary } from '../src/learning/codePractice.js'
 // CodeMirror is contenteditable with an offscreen, virtualized document.
 const codeValue = (editor) => editor.evaluate((element) => element.closest('.cm-editor').__getCodeDraft())
 const expectCode = (editor, expected) => expect.poll(() => codeValue(editor)).toBe(expected)
+const setCode = (editor, value) => editor.evaluate((element, next) => element.closest('.cm-editor').__replaceCodeDraft(next), value)
 
 const storageKey = 'spring-reactor-snapshot-v1'
 const lessonId = 'spring-vs-boot'
@@ -199,7 +200,7 @@ test('a real Java lesson retains code work, spaced retry and mastery after reloa
   await openLearningPhase(page, 1)
 
   const codeWorkout = page.locator('.code-workout')
-  await codeWorkout.getByRole('textbox', { name: /kod editörü/ }).fill(`class Product {
+  await setCode(codeWorkout.getByRole('textbox', { name: /kod editörü/ }), `class Product {
   String name;
   double price;
 }
@@ -269,7 +270,7 @@ test('unfinished Java code draft autosaves and returns after reload', async ({ p
 
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const draft = 'class Product {\n  String name;\n  // Henüz bitmedi\n}'
-  await editor.fill(draft)
+  await setCode(editor, draft)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(draft)
   const saved = (await storedProgress(page)).learning['java-class']
   expect(saved.codeDraftUpdatedAt).toBeGreaterThan(0)
@@ -287,14 +288,14 @@ test('Java requirements update only on submission and reset after editing', asyn
   const workout = page.locator('.code-workout')
   const editor = workout.getByRole('textbox', { name: /kod editörü/ })
   const requirements = workout.locator('.code-requirements')
-  await editor.fill('class Product {}')
+  await setCode(editor, 'class Product {}')
   await expect(requirements.locator('.missing')).toHaveCount(0)
 
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(requirements.locator('.missing').first()).toBeVisible()
   await expect(workout.locator('.code-workout-feedback')).toBeVisible()
 
-  await editor.fill(`class Product { String name; double price; }
+  await setCode(editor, `class Product { String name; double price; }
 class Demo { void run() {
   Product phone = new Product();
   phone.name = "Telefon";
@@ -320,7 +321,7 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   await expect(help).toBeVisible()
   await expect(help).toContainText('Esc: editörden çık')
 
-  await editor.fill('')
+  await setCode(editor, '')
   await expect(workout.getByRole('button', { name: 'Kodu kontrol et' })).toBeDisabled()
   await editor.press('Escape')
   await expect(workout.getByRole('group', { name: 'Kod çalışması eylemleri' })).toBeFocused()
@@ -328,7 +329,7 @@ test('code editor keyboard shortcuts expose an accessible exit and feedback', as
   await expect(workout.getByRole('button', { name: 'Örnek çözümü göster' })).not.toBeFocused()
   await editor.focus()
 
-  await editor.fill('class Test {}')
+  await setCode(editor, 'class Test {}')
   await editor.press('End')
   await editor.press('Tab')
   await expectCode(editor, 'class Test {}  ')
@@ -350,7 +351,7 @@ test('indentation keeps selected code and skips a line outside the selection', a
 
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const initial = 'class Test {\n  int a;\n  int b;\n}'
-  await editor.fill(initial)
+  await setCode(editor, initial)
   await editor.evaluate((element) => element.closest('.cm-editor').__selectCodeRange(0, 'class Test {\n  int a;\n'.length))
   await editor.press('Tab')
 
@@ -372,7 +373,7 @@ test('code editor Tab indentation can be undone and stays in sync with the saved
 
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const initial = 'class Test {}'
-  await editor.fill(initial)
+  await setCode(editor, initial)
   await editor.press('End')
   await editor.press('Tab')
   await expectCode(editor, `${initial}  `)
@@ -393,14 +394,14 @@ test('code editor line numbers track added and removed lines without losing the 
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const gutter = page.locator('.code-workout .cm-lineNumbers')
 
-  await editor.fill('class A {}')
+  await setCode(editor, 'class A {}')
   await expect.poll(() => gutter.locator('.cm-gutterElement').allTextContents()).toContain('1')
   const multiline = 'class A {\n  int count;\n}\n'
-  await editor.fill(multiline)
+  await setCode(editor, multiline)
   await expect.poll(() => gutter.locator('.cm-gutterElement').allTextContents()).toEqual(expect.arrayContaining(['1', '2', '3', '4']))
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(multiline)
 
-  await editor.fill('class A {}')
+  await setCode(editor, 'class A {}')
   await expect.poll(() => gutter.locator('.cm-gutterElement').allTextContents()).toContain('1')
   await page.reload()
   await openLearningPhase(page, 1)
@@ -418,18 +419,18 @@ test('Java syntax and missing requirements are checked separately before recordi
   const feedback = workout.getByRole('status')
   const requirements = workout.locator('.code-requirements')
 
-  await editor.fill('class Product { String name;')
+  await setCode(editor, 'class Product { String name;')
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(feedback).toContainText('Java sözdizimi hatası ve eksik şartlar var.')
   await expect(requirements).toContainText('× Java sözdizimi')
   await expect(requirements).toContainText('× double price field’ı')
   expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
 
-  await editor.fill('class Product { String name; void run() { int x = ; } }')
+  await setCode(editor, 'class Product { String name; void run() { int x = ; } }')
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(feedback).toContainText(/\d+\. satır, \d+\. sütun civarında Java sözdizimi hatası/)
 
-  await editor.fill('class Product { String name; }')
+  await setCode(editor, 'class Product { String name; }')
   await expect(feedback).toHaveCount(0)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(feedback).toContainText('Java sözdizimi geçerli, görev eksik.')
@@ -437,7 +438,7 @@ test('Java syntax and missing requirements are checked separately before recordi
   await expect(requirements).toContainText('✓ Java sözdizimi')
   expect((await storedProgress(page))?.learning?.['java-class']?.codePassed).not.toBe(true)
 
-  await editor.fill(`${codePracticeLibrary['java-class'].solution}\n@@@`)
+  await setCode(editor, `${codePracticeLibrary['java-class'].solution}\n@@@`)
   expect(await workout.locator('.cm-editor').evaluate((node) => node.__getCodeDraft()))
     .toBe(`${codePracticeLibrary['java-class'].solution}\n@@@`)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
@@ -473,7 +474,7 @@ test('browser without Web Worker reports verification unavailable, not invalid J
   await openLearningPhase(page, 1)
 
   const workout = page.locator('.code-workout')
-  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(codePracticeLibrary['java-class'].solution)
+  await setCode(workout.getByRole('textbox', { name: /kod editörü/ }), codePracticeLibrary['java-class'].solution)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(workout.getByRole('status')).toContainText('Java sözdizimi kontrol edilemedi.')
   await expect(workout.getByRole('status')).toContainText('henüz doğrulanmadı')
@@ -504,7 +505,7 @@ test('late Java syntax response cannot mark an edited answer complete', async ({
   const workout = page.locator('.code-workout')
   const editor = workout.getByRole('textbox', { name: /kod editörü/ })
 
-  await editor.fill(codePracticeLibrary['java-class'].solution)
+  await setCode(editor, codePracticeLibrary['java-class'].solution)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(workout.getByRole('status')).toContainText('Java sözdizimi kontrol ediliyor')
   await expect.poll(() => page.evaluate(() => window.__javaSyntaxTest.count())).toBe(1)
@@ -533,7 +534,7 @@ test('code editor does not accept required Java code hidden inside string litera
   const workout = page.locator('.code-workout')
   const challenge = codePracticeLibrary['java-class']
   const fakeAnswer = `${challenge.solution.replace('class Product {', 'class ProductDraft {')}\nclass Notes { String fake = "class Product {"; }`
-  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(fakeAnswer)
+  await setCode(workout.getByRole('textbox', { name: /kod editörü/ }), fakeAnswer)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
   await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
@@ -550,7 +551,7 @@ test('code editor rejects a field assignment faked inside a Java string', async 
     'phone.price = 1299.0;',
     'String fake = "phone.price = 1299.0;";',
   )
-  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(forged)
+  await setCode(workout.getByRole('textbox', { name: /kod editörü/ }), forged)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
   await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
@@ -567,7 +568,7 @@ test('code editor requires Product fields in Product rather than a nested class'
     '  String name;\n  double price;',
     '  class Nested { String name; double price; }',
   )
-  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(fakeAnswer)
+  await setCode(workout.getByRole('textbox', { name: /kod editörü/ }), fakeAnswer)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
   await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
@@ -583,7 +584,7 @@ test('collections challenge rejects valid code copied into a different class', a
   const wrongClass = codePracticeLibrary['java-collections'].solution.replace(
     'class Directory {', 'class OtherDirectory {',
   ) + '\nclass Directory { void example() {} }'
-  await workout.getByRole('textbox', { name: /kod editörü/ }).fill(wrongClass)
+  await setCode(workout.getByRole('textbox', { name: /kod editörü/ }), wrongClass)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
 
   await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
@@ -603,7 +604,7 @@ test('Spring transaction exercise checks debit/credit inside transfer and accept
     '    ledger.credit(toId, amount);\n    ledger.debit(fromId, amount);',
   )
 
-  await editor.fill(wrongOrder)
+  await setCode(editor, wrongOrder)
   await expectCode(editor, wrongOrder)
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(workout.getByRole('status')).toContainText('Java sözdizimi geçerli, görev eksik.')
@@ -624,13 +625,13 @@ test('generated code gap accepts only the missing expression', async ({ page }) 
   const editor = workout.getByRole('textbox', { name: /kod editörü/ })
   await expect(workout).toContainText('KOD PARÇASINI TAMAMLA')
 
-  await editor.fill('"@SpringBootApplication"')
+  await setCode(editor, '"@SpringBootApplication"')
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(workout.getByRole('status')).toContainText('Henüz eksik parça var.')
   await expect(workout.getByRole('status')).toContainText('yorum veya metin')
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
 
-  await editor.fill('@SpringBootApplication')
+  await setCode(editor, '@SpringBootApplication')
   await expect(workout).not.toContainText('✓ TAMAMLANDI')
   await workout.getByRole('button', { name: 'Kodu kontrol et' }).click()
   await expect(workout.getByRole('status')).toContainText('Eksik parçayı doğru tamamladın.')
@@ -646,7 +647,7 @@ test('Java draft survives a reload immediately after typing', async ({ page }) =
 
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const draft = 'class Product {\n  String name;\n  // Kaydetmeden hemen yenile\n}'
-  await editor.fill(draft)
+  await setCode(editor, draft)
   expect((await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(draft)
   await page.reload()
   await openLearningPhase(page, 1)
@@ -661,7 +662,7 @@ test('Java draft survives immediately leaving and reopening the lesson', async (
 
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const draft = 'class Product {\n  int stock = 5;\n}'
-  await editor.fill(draft)
+  await setCode(editor, draft)
   await page.goto(`?lesson=${lessonId}`)
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
@@ -693,7 +694,7 @@ test('restoring a newer JSON code draft updates an open editor before the next e
   await page.goto('?lesson=java-class')
   await openLearningPhase(page, 1)
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
-  await editor.fill('class Product { int oldStock; }')
+  await setCode(editor, 'class Product { int oldStock; }')
   const backup = await openBackup(page)
   const imported = await storedProgress(page)
   const restoredDraft = 'class Product {\n  int importedStock;\n}'
@@ -723,11 +724,11 @@ test('delayed autosave cannot rewind a newer Java editor draft', async ({ page }
   const firstDraft = codePracticeLibrary['java-class'].solution
   const latestDraft = `${firstDraft}\n@@@`
 
-  await editor.fill(firstDraft)
+  await setCode(editor, firstDraft)
   await expectCode(editor, firstDraft)
   // Cross the 350 ms app-state debounce while the user is still editing.
   await page.waitForTimeout(300)
-  await editor.fill(latestDraft)
+  await setCode(editor, latestDraft)
   await expectCode(editor, latestDraft)
   await expect.poll(async () => (await storedProgress(page))?.learning?.['java-class']?.codeDraft).toBe(latestDraft)
   await page.waitForTimeout(450)
@@ -743,7 +744,7 @@ test('replacing a JSON backup without a draft clears the open editor', async ({ 
   await openLearningPhase(page, 1)
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
   const starter = await codeValue(editor)
-  await editor.fill('class Product { int unsavedStock; }')
+  await setCode(editor, 'class Product { int unsavedStock; }')
   const backup = await openBackup(page)
   const imported = await storedProgress(page)
   delete imported.learning['java-class'].codeDraft
@@ -845,7 +846,7 @@ test('a stale Java editor cannot overwrite newer progress from another tab', asy
 
   await expect(page.getByRole('alert')).toContainText('Başka bir sekme ilerlemeni değiştirdi')
   const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
-  await editor.fill('class Product { int stock; }')
+  await setCode(editor, 'class Product { int stock; }')
   expect((await storedProgress(page)).learning[lessonId].attempts).toBe(13)
 
   await page.reload()
@@ -856,7 +857,7 @@ test('a stale Java editor cannot overwrite newer progress from another tab', asy
 
 test('small mobile viewports avoid page-wide horizontal overflow', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile regression')
-  for (const width of [320, 375, 400]) {
+  for (const width of [320, 360, 375, 400]) {
     await page.setViewportSize({ width, height: 780 })
     await page.goto('./')
     await expect(page.getByRole('main')).toBeVisible()
@@ -893,7 +894,7 @@ test('microservice simulators keep primary actions inside narrow mobile viewport
 
 test('circuit breaker diagram stays legible without overlapping its nodes on narrow phones', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile legibility regression')
-  for (const width of [320, 375, 400]) {
+  for (const width of [320, 360, 375, 400]) {
     await page.setViewportSize({ width, height: 780 })
     await page.goto('?lesson=microservice-resilience')
     await openLearningPhase(page, 1)
@@ -920,7 +921,7 @@ test('circuit breaker diagram stays legible without overlapping its nodes on nar
 
 test('mobile daily study heading is unobstructed by desktop decoration', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile decoration regression')
-  for (const width of [320, 400]) {
+  for (const width of [320, 360, 400]) {
     await page.setViewportSize({ width, height: 780 })
     await page.goto('./')
     await expect(page.locator('.daily-plan h2')).toBeVisible()
@@ -950,13 +951,13 @@ test('simulator controls expose visible keyboard focus and reduced-motion prefer
 
 test('mobile code editor scrolls long code internally without widening the lesson', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-chromium', 'Dedicated mobile editor regression')
-  for (const width of [320, 375]) {
+  for (const width of [320, 360, 375]) {
     await page.setViewportSize({ width, height: 780 })
     await page.goto('?lesson=java-class')
     await openLearningPhase(page, 1)
     const editor = page.locator('.code-workout').getByRole('textbox', { name: /kod editörü/ })
     const draft = `class Example { String payload = "${'a'.repeat(1500)}"; }`
-    await editor.fill(draft)
+    await setCode(editor, draft)
     await expectCode(editor, draft)
     const bounds = await page.evaluate(() => {
       const scroller = document.querySelector('.code-workout .cm-scroller')

@@ -3,6 +3,10 @@ import { expect, test } from '@playwright/test'
 const SNAPSHOT_KEY = 'spring-reactor-snapshot-v1'
 const codeValue = (editor) => editor.evaluate((node) => node.closest('.cm-editor').__getCodeDraft())
 const expectCode = (editor, expected) => expect.poll(() => codeValue(editor)).toBe(expected)
+const setCode = (editor, value, addToHistory = false) => editor.evaluate(
+  (node, input) => node.closest('.cm-editor').__replaceCodeDraft(input.value, input.addToHistory),
+  { value, addToHistory },
+)
 
 function javaDraft(length) {
   const line = '  int value = 42; // editor latency sample\n'
@@ -55,7 +59,7 @@ test('multi-character input replaces a DOM selection before CodeMirror observes 
 
 test('visible partial DOM selection wins over a stale nonempty CodeMirror selection', async ({ page }) => {
   const editor = await openEditor(page)
-  await editor.fill('class Demo {}')
+  await setCode(editor, 'class Demo {}')
   await expectCode(editor, 'class Demo {}')
   const details = await editor.evaluate((content) => {
     const view = content.closest('.cm-editor')
@@ -107,7 +111,7 @@ test('composition input remains owned by CodeMirror even if insertText reports n
 
 test('Ctrl+Enter does not verify a lesson during IME composition', async ({ page }) => {
   const editor = await openEditor(page)
-  await editor.fill('class Demo {}')
+  await setCode(editor, 'class Demo {}')
   const details = await editor.evaluate((content) => {
     content.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' }))
     const shortcut = new KeyboardEvent('keydown', {
@@ -132,7 +136,7 @@ test('native clipboard paste preserves a selected multiline draft, undo and save
   const editor = await openEditor(page)
   const initial = 'class Demo { int old = 1; }'
   const replacement = 'class Demo {\n  String message = "Merhaba";\n  int count = 2;\n}'
-  await editor.fill(initial)
+  await setCode(editor, initial)
   await editor.focus()
   await editor.press('ControlOrMeta+a')
   await page.evaluate((text) => navigator.clipboard.writeText(text), replacement)
@@ -152,7 +156,7 @@ test('Ctrl+Shift+Z is captured as exactly one redo transaction', async ({ page }
   const editor = await openEditor(page)
   const initial = 'class Demo { int old = 1; }'
   const replacement = 'class Demo { int value = 2; }'
-  await editor.fill(initial)
+  await setCode(editor, initial)
   await editor.focus()
   await editor.press('ControlOrMeta+a')
   await page.keyboard.insertText(replacement)
@@ -181,7 +185,7 @@ test('select-all and multiline replacement include offscreen code on mobile and 
   const editor = await openEditor(page)
   const initial = `class LongDraft {\n${'  int oldValue;\n'.repeat(1000)}}`
   const replacement = 'class Replaced {\n  int value;\n}'
-  await editor.fill(initial)
+  await setCode(editor, initial)
   await expectCode(editor, initial)
   await editor.focus()
   await editor.press('ControlOrMeta+a')
@@ -200,7 +204,7 @@ test('native clipboard paste respects the draft length limit without changing sa
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   const editor = await openEditor(page)
   const currentDraft = 'x'.repeat(19999)
-  await editor.fill(currentDraft)
+  await setCode(editor, currentDraft)
   await editor.press('End')
   await page.evaluate(() => navigator.clipboard.writeText('oversized'))
   await editor.press('ControlOrMeta+v')
@@ -213,7 +217,7 @@ test('long Java drafts immediately preserve each keystroke and survive reload', 
   const editor = await openEditor(page)
   for (const length of [5000, 19000]) {
     const draft = javaDraft(length)
-    await editor.fill(draft)
+    await setCode(editor, draft)
     await expectCode(editor, draft)
     const start = Date.now()
     let expected = draft
@@ -236,6 +240,8 @@ test('virtualized gutter remains bounded after extremely dense paste and scroll'
   const lineCount = process.env.EDITOR_STRESS === '1' ? 16000 : 2000
   const draft = `class A {\n${'\n'.repeat(lineCount)}}`
   const start = Date.now()
+  // Keep this on the real contenteditable input path: the assertion measures
+  // CodeMirror's DOM measurement/virtualization after a browser-driven fill.
   await editor.fill(draft)
   const fillMs = Date.now() - start
   await expectCode(editor, draft)
@@ -272,7 +278,7 @@ test('large multiline input supports undo and enforces the draft size limit', as
   expect(draft.length).toBeGreaterThan(1024)
   expect(draft.length).toBeLessThan(20000)
 
-  await editor.fill(draft)
+  await setCode(editor, draft, true)
   await expectCode(editor, draft)
   await expect(page.locator('.code-editor-count')).toContainText(`${draft.length.toLocaleString('tr-TR')} / 20.000`)
   await editor.press('ControlOrMeta+z')
@@ -280,17 +286,17 @@ test('large multiline input supports undo and enforces the draft size limit', as
   await editor.press('ControlOrMeta+Shift+z')
   await expectCode(editor, draft)
 
-  await editor.fill('x'.repeat(20001))
+  await setCode(editor, 'x'.repeat(20001))
   await expectCode(editor, draft)
   await expect(page.locator('.code-editor-limit-alert')).toContainText('20.000 karakter sınırı')
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).learning['java-class'].codeDraft, SNAPSHOT_KEY)
   expect(saved).toBe(draft)
-  await editor.fill('class NewProduct {}')
+  await setCode(editor, 'class NewProduct {}')
   await expectCode(editor, 'class NewProduct {}')
   await expect(page.locator('.code-editor-limit-alert')).toHaveCount(0)
 
   const nearLimit = 'x'.repeat(19999)
-  await editor.fill(nearLimit)
+  await setCode(editor, nearLimit)
   await editor.press('End')
   await editor.press('Tab')
   await expectCode(editor, nearLimit)

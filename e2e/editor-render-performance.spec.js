@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 
 const codeValue = (editor) => editor.evaluate((element) => element.closest('.cm-editor').__getCodeDraft())
 const expectCode = (editor, expected) => expect.poll(() => codeValue(editor)).toBe(expected)
+const setCode = (editor, value) => editor.evaluate((element, next) => element.closest('.cm-editor').__replaceCodeDraft(next), value)
 
 test('typing in Java code editor does not re-render the entire App for every keystroke', async ({ page }) => {
   await page.addInitScript(() => {
@@ -37,7 +38,7 @@ test('typing in Java code editor does not re-render the entire App for every key
   await page.locator('.learning-phase-nav button').nth(1).click()
   const editor = page.locator('.code-workout .cm-content')
   await expect(editor).toBeVisible()
-  await editor.fill('class Product {}')
+  await setCode(editor, 'class Product {}')
   const before = await page.evaluate(() => ({ ...window.__editorRenderMetrics }))
   await editor.pressSequentially('abcdefghijklmnopqrstuvwx', { delay: 20 })
   const after = await page.evaluate(() => ({ ...window.__editorRenderMetrics }))
@@ -63,7 +64,7 @@ test('JSON export reads the latest Java draft even before the parent renders aga
   await page.locator('.learning-phase-nav button').nth(1).click()
   const editor = page.locator('.code-workout .cm-content')
   const draft = 'class Product { int immediateBackup; }'
-  await editor.fill(draft)
+  await setCode(editor, draft)
 
   const mobileToggle = page.getByRole('button', { name: /Konu haritası/ })
   if (await mobileToggle.isVisible()) await mobileToggle.click()

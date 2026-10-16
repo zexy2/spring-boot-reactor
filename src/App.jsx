@@ -2752,7 +2752,7 @@ const guidedLessonPhases = [
   { id: 'recall', label: 'HATIRLA / TEST ET', note: 'Recall + checkpoint' },
 ]
 
-function GuidedLearningLesson({ lesson, completed, status, learningRecordData, codePassed, onComplete, onQuizAnswer, onCodeComplete, onCodeDraftChange, onDebugAttempt, onActiveRecall, onInterviewAttempt, onNext, nextLesson, index, total }) {
+function GuidedLearningLesson({ lesson, completed, status, learningRecordData, codePassed, restoreVersion, onComplete, onQuizAnswer, onCodeComplete, onCodeDraftChange, onDebugAttempt, onActiveRecall, onInterviewAttempt, onNext, nextLesson, index, total }) {
   const prerequisites = useMemo(() => getPrerequisites(lesson), [lesson])
   const lessonTerms = useMemo(() => getLessonTerms(lesson), [lesson])
   const hasCodeWorkout = useMemo(() => Boolean(buildCodePractice(lesson)), [lesson])
@@ -2843,7 +2843,7 @@ function GuidedLearningLesson({ lesson, completed, status, learningRecordData, c
           <div className="guided-lab-divider"><span>ŞİMDİ SEN DENE</span><p>Önce kontrollü deney, sonra serbestçe kurcala.</p></div>
           <LessonLab lesson={lesson} />
           <MemoryGame lesson={lesson} />
-          <CodeWorkout lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} savedDraftUpdatedAt={learningRecordData.codeDraftUpdatedAt} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
+          <CodeWorkout key={`${lesson.id}-${restoreVersion}`} lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} savedDraftUpdatedAt={learningRecordData.codeDraftUpdatedAt} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
           <DebugWorkout lesson={lesson} record={learningRecordData} onAttempt={onDebugAttempt} />
           <div className="phase-actions"><button type="button" className="reveal" onClick={() => selectPhase('understand')}>← Anla</button><button type="button" className="complete-button" onClick={() => selectPhase('recall')}>Hatırla / test et →</button></div>
         </div>
@@ -3005,6 +3005,7 @@ function App() {
   })
   const [completed, setCompleted] = useState(initialState.completed)
   const [learning, setLearning] = useState(initialState.learning)
+  const [progressRestoreVersion, setProgressRestoreVersion] = useState(0)
   const latestProgress = useRef(initialState)
   const pendingCodeDrafts = useRef(new Map())
   const pendingDraftTimer = useRef(null)
@@ -3171,6 +3172,7 @@ function App() {
     latestProgress.current = restored
     setLearning(restored.learning)
     setCompleted(restored.completed)
+    setProgressRestoreVersion((version) => version + 1)
     setRecoveryIssue('')
     setStorageWarning(false)
     return restored
@@ -3504,7 +3506,7 @@ function App() {
             <button className="lesson-share" type="button" onClick={copyLessonLink} title={`${activeLesson.title} dersinin bağlantısını kopyala`}>Bağlantıyı kopyala ↗</button>
           </div>
           {copyStatus && <p className="lesson-share-status" role="status" aria-live="polite">{copyStatus} {copyStatus.startsWith('Kopyalama') && <a href={lessonUrl(window.location.href, activeId)} target="_blank" rel="noopener noreferrer">Ders bağlantısını aç ↗</a>}</p>}
-          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={pendingCodeDrafts.current.has(activeId) ? { ...activeRecord, ...pendingCodeDrafts.current.get(activeId) } : activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={flushCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
+          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={pendingCodeDrafts.current.has(activeId) ? { ...activeRecord, ...pendingCodeDrafts.current.get(activeId) } : activeRecord} codePassed={activeRecord.codePassed} restoreVersion={progressRestoreVersion} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={flushCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
           {reviewDueCount === 0 && <RecallDeck completed={completedSet} activeId={activeId} learning={learning} onReview={recordReview} />}
           <footer>
             <strong>{activeLesson.points?.[0] ?? activeLesson.hook}</strong>

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Transaction } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
 import { defaultHighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { java } from '@codemirror/lang-java'
@@ -134,6 +134,15 @@ export default function JavaCodeEditor({ value, syncVersion, onChange, onVerify,
     view.dom.__getCodeDraft = () => view.state.doc.toString()
     view.dom.__selectCodeRange = (from, to) => view.dispatch({ selection: { anchor: from, head: to } })
     view.dom.__codeSelection = () => [view.state.selection.main.from, view.state.selection.main.to]
+    view.dom.__replaceCodeDraft = (nextValue, addToHistory = false) => {
+      const next = String(nextValue)
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: next },
+        selection: { anchor: next.length },
+        annotations: Transaction.addToHistory.of(Boolean(addToHistory)),
+      })
+      return view.state.doc.toString()
+    }
     return () => {
       view.contentDOM.removeEventListener('keydown', onShortcut, true)
       view.contentDOM.removeEventListener('compositionstart', onCompositionStart, true)
