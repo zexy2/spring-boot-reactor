@@ -1856,6 +1856,106 @@ const labExperiments = {
       ['Error rate normale döndü, regression test eklendi', 'Result', 'Sonuç ve kalıcı iyileştirmeyi kanıtlar.'],
     ],
   },
+  'requirement-discovery': {
+    eyebrow: 'DISCOVERY LAB', title: 'İstek değil, problem alanını netleştir.', badge: 'WHO / WHY / CONSTRAINT',
+    copy: 'Belirsiz bir iş isteğini seç. Hangi sorunun implementation başlamadan önce riski düşürdüğünü gör.',
+    prompt: 'Belirsizlik',
+    choices: [
+      ['“Sipariş iptal edilebilsin”', 'Kuralı sor: kim, hangi durumda, hangi süre içinde?', 'Aynı cümle müşteri, operasyon veya admin için farklı authorization ve state transition anlamına gelebilir.'],
+      ['“Sistem hızlı olsun”', 'Ölçülebilir hedef iste: p95 latency / throughput / yük profili', '“Hızlı” test edilemez. Sayısal SLO, mimari kararın ve acceptance testinin sınırını verir.'],
+      ['“Eski sistem gibi çalışsın”', 'Happy path + edge case + mevcut istisnaları çıkar', 'Legacy davranışın tamamını körlemesine kopyalamak yerine gerçek business invariant ve exception’ları görünür yaparsın.'],
+    ],
+  },
+  'acceptance-criteria': {
+    eyebrow: 'ACCEPTANCE LAB', title: 'Beklentiyi test edilebilir sözleşmeye çevir.', badge: 'GIVEN / WHEN / THEN',
+    copy: 'Acceptance criterion örneğini seç. İyi kriterin gözlenebilir sonuç ve sınır koşulu içermesini karşılaştır.',
+    prompt: 'Kriter',
+    choices: [
+      ['Given stok 0, When sipariş verilir, Then 409 ve stok değişmez', 'Test edilebilir kriter', 'Başlangıç durumu, aksiyon ve gözlenebilir sonuç açık. Otomasyonla doğrudan doğrulanabilir.'],
+      ['“Sipariş ekranı düzgün çalışmalı”', 'Belirsiz kriter', '“Düzgün” ölçülemez; hata durumu, beklenen çıktı ve iş kuralı belirtilmediği için farklı yorumlar oluşur.'],
+      ['Given ödeme timeout, When retry limiti dolar, Then sipariş PENDING_PAYMENT kalır', 'Failure path kriteri', 'Happy path kadar timeout ve retry sonrasındaki business state de acceptance kapsamına girer.'],
+    ],
+  },
+  'user-story-dod': {
+    eyebrow: 'DELIVERY LAB', title: 'Story bitti demek için davranış + kalite kanıtı gerekir.', badge: 'STORY / DOD',
+    copy: 'Teslim adımını seç. User story kapsamı ile takımın Definition of Done standardını ayır.',
+    prompt: 'Teslim sinyali',
+    choices: [
+      ['Acceptance kriterleri geçti', 'Story davranışı doğrulandı', 'Kullanıcı beklentisi karşılandı; bu tek başına takımın tüm kalite kapılarının tamamlandığını kanıtlamaz.'],
+      ['Code review + test + CI + dokümantasyon tamam', 'Definition of Done', 'Takımın tekrar eden kalite standardı her story için aynı teslim eşiğini oluşturur.'],
+      ['Kod localde çalışıyor', 'Done değil', 'Review, otomatik test, integration ve deployability kanıtı olmadan yalnız geliştirici ortamı doğrulanmıştır.'],
+    ],
+  },
+  'scrum-roles': {
+    eyebrow: 'SCRUM ROLE LAB', title: 'Kararı doğru role yönlendir.', badge: 'PO / SM / DEVELOPERS',
+    copy: 'Problemi seç. Scrum rollerinin sorumluluk sınırını ve sık yapılan sahiplik hatasını gör.',
+    prompt: 'Durum',
+    choices: [
+      ['Backlog sırası ve ürün değeri tartışılıyor', 'Product Owner', 'Product Goal ve Product Backlog ordering sorumluluğu Product Owner’dadır.'],
+      ['Takımın impediment’i sprinti blokluyor', 'Scrum Master kolaylaştırır', 'Scrum Master engelin çözülmesini destekler ve Scrum’ın etkili uygulanmasına yardım eder.'],
+      ['Nasıl implement edileceği konuşuluyor', 'Developers', 'Sprint Backlog planı ve teknik uygulama kararları işi yapan Developers tarafından şekillendirilir.'],
+    ],
+  },
+  'scrum-events': {
+    eyebrow: 'EVENT LAB', title: 'Her etkinliğin farklı bir inspection hedefi var.', badge: 'PLAN / DAILY / REVIEW / RETRO',
+    copy: 'İhtiyacı seç. Yanlış toplantıyı doğru amaç için kullanmanın neden akışı bozduğunu gör.',
+    prompt: 'İhtiyaç',
+    choices: [
+      ['Sprint Goal ve seçilecek işler netleşecek', 'Sprint Planning', 'Why, What ve How konuşularak Sprint Goal ve başlangıç Sprint Backlog’u oluşturulur.'],
+      ['Ürün increment’i stakeholder ile incelenecek', 'Sprint Review', 'Ürün sonucu ve çevredeki değişimler değerlendirilir; backlog buna göre adapte edilebilir.'],
+      ['Takım çalışma biçimini iyileştirecek', 'Sprint Retrospective', 'People, process ve araçlar incelenir; bir sonraki sprint için uygulanabilir iyileştirme seçilir.'],
+    ],
+  },
+  'sprint-backlog': {
+    eyebrow: 'SPRINT PLAN LAB', title: 'Kapasiteyi doldurmak değil, Sprint Goal’u korumak.', badge: 'GOAL / CAPACITY / ADAPT',
+    copy: 'Plan kararını seç. Sprint Backlog’un sabit kontrat değil, goal odaklı yaşayan plan olduğunu gör.',
+    prompt: 'Plan durumu',
+    choices: [
+      ['8 puan kapasiteye 13 puan iş alındı', 'Over-capacity riski', 'Kapasiteyi sistematik aşmak tahmin edilebilirliği düşürür ve Sprint Goal’u riske atar.'],
+      ['Yeni bilgi çıktı, görev adımları değişti', 'Sprint Backlog adapte edilir', 'Developers Sprint Goal korunurken planın detayını sprint boyunca güncelleyebilir.'],
+      ['Urgent iş Sprint Goal’u bozuyor', 'PO ile kapsam/goal etkisini görünür yap', 'Yeni işi sessizce eklemek yerine trade-off konuşulur; mevcut iş çıkarma veya yeniden planlama gerekebilir.'],
+    ],
+  },
+  'documentation-types': {
+    eyebrow: 'DOCUMENTATION LAB', title: 'Belgeyi okuyucunun kararına göre seç.', badge: 'ADR / RUNBOOK / API',
+    copy: 'Bilgi ihtiyacını seç. Her şeyi tek wiki sayfasına koymak yerine doğru belge tipini eşleştir.',
+    prompt: 'Bilgi ihtiyacı',
+    choices: [
+      ['Neden PostgreSQL seçildi?', 'ADR', 'Alternatifler, trade-off ve karar gerekçesi gelecekte aynı tartışmanın baştan yapılmasını önler.'],
+      ['Gece 02:00’de queue birikti, ne yaparım?', 'Runbook', 'Operasyon adımları, doğrulama sinyalleri ve rollback yolu incident anında hızlı uygulanabilir olmalıdır.'],
+      ['Client hangi endpoint ve payload’ı kullanacak?', 'API contract / OpenAPI', 'Request, response, status ve schema makinece okunabilir sözleşmede tutulur.'],
+    ],
+  },
+  'knowledge-transfer': {
+    eyebrow: 'HANDOVER LAB', title: 'Bilgi aktarımı sunumla bitmez; bağımsız icra ile kanıtlanır.', badge: 'DOC / SHADOW / REVERSE-SHADOW',
+    copy: 'Handover adımını seç. Pasif anlatımdan gerçek operasyonel sahipliğe geçişi gör.',
+    prompt: 'Aktarım adımı',
+    choices: [
+      ['Yeni ekip mevcut ekibi izliyor', 'Shadowing', 'Bağlam ve gerçek operasyon akışı görülür; yine de bağımsız çalışabildiği henüz kanıtlanmaz.'],
+      ['Yeni ekip işlemi yapıyor, eski ekip gözlüyor', 'Reverse shadowing', 'Bilginin gerçekten transfer edildiğini ve boşlukların görünür olduğunu güçlü biçimde doğrular.'],
+      ['Runbook var ama kimse denemedi', 'Eksik transfer', 'Doküman tek başına yeterli değildir; erişim, komut doğruluğu ve failure path pratikte test edilmelidir.'],
+    ],
+  },
+  'incident-triage': {
+    eyebrow: 'INCIDENT LAB', title: 'Önce etkiyi sınırla, sonra kök nedeni derinleştir.', badge: 'SEVERITY / EVIDENCE / MITIGATION',
+    copy: 'Incident sinyalini seç. Triage sırasında kanıt toplama ile hızlı risk azaltma kararını ayır.',
+    prompt: 'Sinyal',
+    choices: [
+      ['Deploy sonrası error rate %2’den %35’e çıktı', 'Yeni deploy güçlü korelasyon; rollback değerlendir', 'Zaman korelasyonu tek başına kök neden kanıtı değildir ama blast radius büyürken düşük riskli rollback güçlü mitigation olabilir.'],
+      ['Bir kullanıcı 500 aldı', 'Önce kapsam ve tekrar üretilebilirlik ölç', 'Tek örnek severity belirlemek için yetersizdir; error rate, etkilenen tenant ve dependency sinyalleri gerekir.'],
+      ['CPU normal ama DB latency yükseldi', 'Dependency evidence topla', 'Uygulama CPU’su normal diye sistemi sağlıklı sayamazsın; downstream latency request zincirini bozabilir.'],
+    ],
+  },
+  'root-cause-prevention': {
+    eyebrow: 'RCA LAB', title: 'Semptomu kapatmak ayrı, tekrarını önlemek ayrı.', badge: 'HYPOTHESIS / REPRO / GUARD',
+    copy: 'RCA adımını seç. Kanıtsız “root cause” ilanı ile doğrulanmış neden ve kalıcı guard arasındaki farkı gör.',
+    prompt: 'RCA adımı',
+    choices: [
+      ['“DB yavaştı” denildi ama ölçüm yok', 'Hipotez', 'Log, trace veya kontrollü reproduction olmadan bu bir olasılıktır; kök neden diye kapatılmamalıdır.'],
+      ['Aynı query load testte latency spike üretiyor', 'Reproduction kanıtı', 'Kontrollü tekrar üretim neden-sonuç bağını güçlendirir ve fix’i doğrulamak için baseline verir.'],
+      ['Index eklendi + regression test + alert threshold', 'Prevention guard', 'Fix yalnız bug’ı kapatmaz; test ve gözlemlenebilirlik aynı failure mode’un geri dönmesini daha erken yakalar.'],
+    ],
+  },
 }
 
 function DecisionLab({ lesson }) {

@@ -2,6 +2,19 @@ import { lazy, Suspense, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { post05PlaygroundIds } from '../../post05PlaygroundIds'
 import { resolvePaymentBean, simulateOrderTransaction, joinUsers, joinOrders, runJoinQuery, joinMissionPassed } from '../../learning/machineChallenges'
+import GameFrame from './GameFrame'
+import {
+  AcceptanceCriteriaPlayground,
+  DocumentationTypesPlayground,
+  IncidentTriagePlayground,
+  KnowledgeTransferPlayground,
+  RequirementDiscoveryPlayground,
+  RootCausePreventionPlayground,
+  ScrumEventsPlayground,
+  ScrumRolesPlayground,
+  SprintBacklogPlayground,
+  UserStoryDodPlayground,
+} from './ProcessPlaygrounds'
 
 let post05PlaygroundPromise
 const loadPost05Playground = () => {
@@ -22,33 +35,10 @@ export function prefetchLessonPlaygroundRuntime(lesson) {
 
 const advancedPlaygroundIds = new Set([
   'exceptions', 'config', 'logging', 'security', 'testing', 'actuator', 'migrations', 'cache', 'async',
+  'requirement-discovery', 'acceptance-criteria', 'user-story-dod', 'scrum-roles', 'scrum-events',
+  'sprint-backlog', 'documentation-types', 'knowledge-transfer', 'incident-triage', 'root-cause-prevention',
   ...post05PlaygroundIds,
 ])
-
-function GameFrame({ lesson, eyebrow, title, copy, className = '', children, footer, experiment, challenge = false }) {
-  const watermark = eyebrow.split(' ')[0]
-
-  return (
-    <section className={`memory-game advanced-game lab-${lesson.id} lab-phase-${lesson.phase} ${className}`} aria-label={`${lesson.title} oyun alanı`}>
-      <span className="advanced-game-watermark" aria-hidden="true">{watermark}</span>
-      <div className="section-label"><span>{challenge ? 'GÖREVİ ÇÖZ' : 'KURCALA VE GÖR'}</span><b>{challenge ? 'SONUCU KANITLA' : 'BU DERSE ÖZEL SAHNE'}</b></div>
-      <div className="advanced-game-head">
-        <small>{eyebrow}</small>
-        <h2>{title}</h2>
-        <p>{copy}</p>
-      </div>
-      {experiment && (
-        <div className="experiment-brief" aria-label="Deney hedefi">
-          <div><small>01 · DEĞİŞTİR</small><strong>{experiment.change}</strong></div>
-          <span aria-hidden="true">→</span>
-          <div><small>02 · GÖZLE</small><strong>{experiment.watch}</strong></div>
-        </div>
-      )}
-      {children}
-      {footer && <div className="advanced-game-foot">{footer}</div>}
-    </section>
-  )
-}
 
 function ClassObjectPlayground({ lesson }) {
   const [objects, setObjects] = useState([
@@ -1362,6 +1352,16 @@ function AdvancedPlayground({ lesson }) {
   if (lesson.id === 'migrations') return <MigrationPlayground lesson={lesson} />
   if (lesson.id === 'cache') return <CachePlayground lesson={lesson} />
   if (lesson.id === 'async') return <AsyncPlayground lesson={lesson} />
+  if (lesson.id === 'requirement-discovery') return <RequirementDiscoveryPlayground lesson={lesson} />
+  if (lesson.id === 'acceptance-criteria') return <AcceptanceCriteriaPlayground lesson={lesson} />
+  if (lesson.id === 'user-story-dod') return <UserStoryDodPlayground lesson={lesson} />
+  if (lesson.id === 'scrum-roles') return <ScrumRolesPlayground lesson={lesson} />
+  if (lesson.id === 'scrum-events') return <ScrumEventsPlayground lesson={lesson} />
+  if (lesson.id === 'sprint-backlog') return <SprintBacklogPlayground lesson={lesson} />
+  if (lesson.id === 'documentation-types') return <DocumentationTypesPlayground lesson={lesson} />
+  if (lesson.id === 'knowledge-transfer') return <KnowledgeTransferPlayground lesson={lesson} />
+  if (lesson.id === 'incident-triage') return <IncidentTriagePlayground lesson={lesson} />
+  if (lesson.id === 'root-cause-prevention') return <RootCausePreventionPlayground lesson={lesson} />
   if (post05PlaygroundIds.has(lesson.id)) {
     return (
       <Suspense key={lesson.id} fallback={<section className="memory-game advanced-game post05-loading" aria-live="polite">Oyun alanı hazırlanıyor…</section>}>
