@@ -100,9 +100,14 @@ Terminalin gösterdiği yerel adrese (genellikle `http://localhost:5173`) git. C
 | Komut | İşlevi |
 | --- | --- |
 | `npm run dev` | Vite geliştirme sunucusunu açar. |
+| `npm run lint` | ESLint kontrollerini sıfır uyarı toleransıyla çalıştırır. |
 | `npm test` | Projenin Node.js testlerini çalıştırır. |
 | `npm run build` | Üretim dosyalarını `dist/` dizinine oluşturur. |
+| `npm run check:bundle` | `dist/assets` içindeki JS/CSS dosyalarının gzip boyutlarını production bütçelerine karşı doğrular. Önce `npm run build` gerekir. |
+| `npm run check:security` | Production bağımlılıklarını `npm audit` ile high/critical açıklar için denetler. |
 | `npm run preview` | Oluşturulmuş üretim çıktısını yerel olarak önizler. |
+| `npm run test:java` | Depodaki 10 Java Core referans çözümünü JDK 21 ile derler ve davranış kontrollerinden geçirir. |
+| `npm run test:spring` | Depodaki 9 Spring referans çözümünü gerçek Spring Boot bağımlılıklarıyla doğrular. |
 | `npm run test:e2e` | GitHub Pages sürümünü önce yeniden derler, ardından masaüstü ve mobil Chromium'da sınar. İlk kullanımda `npx playwright install chromium` gerekir. |
 
 <a id="architecture"></a>
@@ -125,9 +130,9 @@ flowchart TD
 | `src/learning/` | Öğrenme durumu, alıştırma mantığı ve kavrama özel simülasyonlar. |
 | `src/Post05Playgrounds.jsx` | İleri konuların etkileşimli çalışma alanları. |
 | `tests/` | Öğrenme mantığı ve simülasyonları doğrulayan otomatik testler. |
-| `.github/workflows/deploy.yml` | PR'larda birim, masaüstü/mobil tarayıcı testleri ve üretim derlemesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
+| `.github/workflows/deploy.yml` | PR'larda lint, production bağımlılık güvenliği, Node/Java/Spring testleri, masaüstü/mobil tarayıcı testleri, production derlemesi ve bundle bütçesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
 
-**Teknoloji:** React, Vite, JavaScript, `java-parser`, Motion ve Node.js test çalıştırıcısı. GitHub Pages üzerinden statik olarak yayımlanır. Üretim derlemesinde Vite taban yolu `/spring-boot-reactor/` olarak ayarlanır.
+**Teknoloji:** React, Vite, JavaScript, `java-parser`, Motion ve Node.js test çalıştırıcısı. Geliştirme ve CI tabanı Node.js 22'dir (`.nvmrc`, `engines.node`). GitHub Pages üzerinden statik olarak yayımlanır. Üretim derlemesinde Vite taban yolu `/spring-boot-reactor/` olarak ayarlanır.
 
 <a id="progress"></a>
 ## İlerleme ve verilerin
