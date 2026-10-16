@@ -69,6 +69,102 @@ test('Java literals cannot forge the second half of a multi-statement requiremen
   assert.equal(evaluateCodeRequirements(legitimateExtraLiteral, challenge).staticSuccess, true)
 })
 
+test('Java class challenge requires fields inside Product, not a different class', async () => {
+  const challenge = codePracticeLibrary['java-class']
+  const misplaced = challenge.solution.replace('  String name;\n  double price;', '')
+    + '\nclass Other { String name; double price; }'
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(misplaced))
+  const result = evaluateCodeRequirements(misplaced, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label === 'name ve price, Product sınıfında')?.ok, false)
+})
+
+test('Java class challenge rejects fields declared only in a nested class', async () => {
+  const challenge = codePracticeLibrary['java-class']
+  const nested = challenge.solution.replace('  String name;\n  double price;',
+    '  class Nested { String name; double price; }')
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(nested))
+  const result = evaluateCodeRequirements(nested, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label === 'name ve price, Product sınıfında')?.ok, false)
+})
+
+test('Java class challenge rejects required assignments in an unrelated method', async () => {
+  const challenge = codePracticeLibrary['java-class']
+  const misplaced = challenge.solution.replace(
+    '    Product phone = new Product();\n    phone.name = "Telefon";\n    phone.price = 1299.0;',
+    '',
+  ) + '\nclass Other { void unused() { Product phone = new Product(); phone.name = "Telefon"; phone.price = 1299.0; } }'
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(misplaced))
+  const result = evaluateCodeRequirements(misplaced, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label.includes('Demo.run()'))?.ok, false)
+})
+
+test('constructor and interface rules reject code placed in unrelated methods', async () => {
+  const { parse } = await import('java-parser')
+  const constructor = codePracticeLibrary['methods-constructor']
+  const missingInitialization = constructor.solution.replace('    this.name = name;', '')
+    .replace('  String label()', '  void other(String name) { this.name = name; }\n  String label()')
+  assert.doesNotThrow(() => parse(missingInitialization))
+  assert.equal(evaluateCodeRequirements(missingInitialization, constructor).staticSuccess, false)
+
+  const interfaceChallenge = codePracticeLibrary.interface
+  const misplacedPay = interfaceChallenge.solution.replace(
+    '    return amount > 0;', '    return false;',
+  ) + '\nclass Other { boolean valid(double amount) { return amount > 0; } }'
+  assert.doesNotThrow(() => parse(misplacedPay))
+  assert.equal(evaluateCodeRequirements(misplacedPay, interfaceChallenge).staticSuccess, false)
+})
+
+test('Java Core code placed in a different class cannot pass the intended method scope', async () => {
+  const { parse } = await import('java-parser')
+  const relocated = [
+    ['java-collections',
+      (source) => source.replace('class Directory {', 'class OtherDirectory {') + '\nclass Directory { void example() {} }',
+      'Koleksiyon işlemleri Directory.example() içinde'],
+    ['java-hashmap',
+      (source) => source.replace('class UserIndex {', 'class OtherIndex {') + '\nclass UserIndex { void lookup() {} }',
+      'HashMap lookup UserIndex.lookup() içinde'],
+    ['java-exceptions',
+      (source) => source.replace('class Inventory {', 'class OtherInventory {') + '\nclass Inventory { void reserve(int stock, int requested) {} }',
+      'Stok kontrolü Inventory.reserve() içinde'],
+    ['java-streams',
+      (source) => source.replace('class Catalog {', 'class OtherCatalog {')
+        + '\nclass Catalog { List<String> activeNames(List<Product> products) { return List.of(); } }',
+      'Stream zinciri Catalog.activeNames() içinde'],
+    ['java-concurrency',
+      (source) => source.replace('class Counter {', 'class OtherCounter {')
+        + '\nclass Counter { synchronized void increment() {} synchronized int getValue() { return 0; } }',
+      'Senkronize yazma Counter.increment() içinde'],
+  ]
+
+  for (const [id, move, requirement] of relocated) {
+    const challenge = codePracticeLibrary[id]
+    const answer = move(challenge.solution)
+    assert.doesNotThrow(() => parse(answer), `${id}: valid Java grammar`)
+    const result = evaluateCodeRequirements(answer, challenge)
+    assert.equal(result.staticSuccess, false, `${id}: wrong method/class must fail`)
+    assert.equal(result.checks.find(({ label }) => label === requirement)?.ok, false, `${id}: scope feedback`)
+  }
+})
+
+test('Java OOP payment rejects a passing method only in another subclass', async () => {
+  const challenge = codePracticeLibrary['java-oop']
+  const answer = challenge.solution.replace(
+    'boolean pay() { return amount.signum() > 0; }',
+    'boolean pay() { return false; }',
+  ) + '\nclass OtherPayment extends Payment { OtherPayment(BigDecimal amount) { super(amount); } @Override boolean pay() { return amount.signum() > 0; } }'
+  const { parse } = await import('java-parser')
+  assert.doesNotThrow(() => parse(answer))
+  const result = evaluateCodeRequirements(answer, challenge)
+  assert.equal(result.staticSuccess, false)
+  assert.equal(result.checks.find(({ label }) => label === 'Ödeme kontrolü CardPayment.pay() içinde')?.ok, false)
+})
+
 test('requirements with exact Java string values still accept their real literals', () => {
   for (const id of ['methods-constructor', 'java-collections', 'java-hashmap', 'java-exceptions']) {
     const challenge = codePracticeLibrary[id]
@@ -286,6 +382,104 @@ test('Spring Boot exercises reject incorrect design or HTTP behavior', () => {
     assert.ok(challenge.solution.includes(correctPart), `${id}: test fixture`)
     const wrongAnswer = challenge.solution.replace(correctPart, wrongPart)
     assert.equal(evaluateCodeRequirements(wrongAnswer, challenge).staticSuccess, false, `${id}: ${description}`)
+  }
+})
+
+test('Spring repository, transaction and exception checks reject code in the wrong scope', async () => {
+  const { parse } = await import('java-parser')
+  const repository = codePracticeLibrary.repository
+  const transactions = codePracticeLibrary.transactions
+  const exceptions = codePracticeLibrary.exceptions
+
+  const misplacedId = repository.solution.replace('  @Id\n  Long id;', '  Long id;')
+    + '\nclass OtherEntity { @Id Long id; }'
+  const misplacedQueries = repository.solution.replace(
+    '  List<Product> findByActiveTrueOrderByNameAsc();\n  Optional<Product> findBySku(String sku);',
+    '',
+  ) + '\ninterface OtherRepository { List<Product> findByActiveTrueOrderByNameAsc(); Optional<Product> findBySku(String sku); }'
+  const misplacedLedgerCalls = transactions.solution.replace(
+    '    ledger.debit(fromId, amount);\n    ledger.credit(toId, amount);',
+    '',
+  ).replace(
+    '  }\n}',
+    '  }\n  void audit(long fromId, long toId, BigDecimal amount) { ledger.debit(fromId, amount); ledger.credit(toId, amount); }\n}',
+  )
+  const reversedLedgerCalls = transactions.solution.replace(
+    '    ledger.debit(fromId, amount);\n    ledger.credit(toId, amount);',
+    '    ledger.credit(toId, amount);\n    ledger.debit(fromId, amount);',
+  )
+  const misplacedErrorResponse = exceptions.solution.replace(
+    '    return ResponseEntity.status(HttpStatus.NOT_FOUND)\n      .body(new ErrorResponse("PRODUCT_NOT_FOUND", ex.getMessage()));',
+    '    return null;',
+  ).replace(
+    '  }\n}',
+    '  }\n  ResponseEntity<ErrorResponse> unrelated(ProductNotFoundException ex) { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("PRODUCT_NOT_FOUND", ex.getMessage())); }\n}',
+  )
+
+  for (const [id, answer, label] of [
+    ['repository', misplacedId, 'JPA kimliği Product entity içinde'],
+    ['repository', misplacedQueries, 'Derived query metotları ProductRepository içinde'],
+    ['transactions', misplacedLedgerCalls, 'Tutar kontrolü ve debit/credit, TransferService.transfer() içinde ve doğru sırada'],
+    ['transactions', reversedLedgerCalls, 'Tutar kontrolü ve debit/credit, TransferService.transfer() içinde ve doğru sırada'],
+    ['exceptions', misplacedErrorResponse, '404 ve hata gövdesi ApiExceptionHandler.handle() içinde'],
+  ]) {
+    assert.doesNotThrow(() => parse(answer), `${id}: Java grammar is valid`)
+    const result = evaluateCodeRequirements(answer, codePracticeLibrary[id])
+    assert.equal(result.staticSuccess, false, `${id}: misplaced logic cannot pass`)
+    assert.equal(result.checks.find((check) => check.label === label)?.ok, false, `${id}: scope-specific feedback`)
+  }
+
+  for (const id of ['repository', 'transactions', 'exceptions']) {
+    assert.equal(evaluateCodeRequirements(codePracticeLibrary[id].solution, codePracticeLibrary[id]).staticSuccess, true, `${id}: published solution still passes`)
+  }
+})
+
+test('Spring controller, bean and dependency-injection checks reject misplaced implementations', async () => {
+  const { parse } = await import('java-parser')
+  const annotations = codePracticeLibrary.annotations.solution.replace(
+    '    return greetings.greet();',
+    '    return "Merhaba";',
+  ) + '\nclass OtherController { String extra() { return greetings.greet(); } }'
+  const beans = codePracticeLibrary.beans.solution.replace(
+    '  @Bean\n  Clock clock() {\n    return Clock.systemUTC();\n  }',
+    '',
+  ) + '\nclass OtherConfig { @Bean Clock clock() { return Clock.systemUTC(); } }'
+  const injection = codePracticeLibrary['ioc-di'].solution.replace(
+    '    return paymentClient.charge(cents);',
+    '    return false;',
+  ).replace('  }\n}', '  }\n  boolean other(int cents) { return paymentClient.charge(cents); }\n}')
+  const rest = codePracticeLibrary.rest.solution.replace(
+    '    ProductResponse saved = service.create(request);\n    return ResponseEntity.created(URI.create("/products/" + saved.id())).body(saved);',
+    '    return null;',
+  ).replace(
+    '  }\n}',
+    '  }\n  ResponseEntity<ProductResponse> other(CreateProductRequest request) { ProductResponse saved = service.create(request); return ResponseEntity.created(URI.create("/products/" + saved.id())).body(saved); }\n}',
+  )
+  const requestInputs = codePracticeLibrary['request-inputs'].solution.replace(
+    '    return request.name();',
+    '    return "unused";',
+  ).replace('  }\n}', '  }\n  String other(CreateProductRequest request) { return request.name(); }\n}')
+  const validation = codePracticeLibrary.validation.solution.replace(
+    'record CreateUserRequest(\n  @NotBlank String name,\n  @NotBlank @Email String email\n) {}',
+    'record CreateUserRequest(String name, String email) {}',
+  ) + '\nrecord OtherRequest(@NotBlank String name, @NotBlank @Email String email) {}'
+
+  for (const [id, answer, label] of [
+    ['annotations', annotations, 'Service çağrısı GreetingController.hello() içinde'],
+    ['beans', beans, 'Bean fabrikaları AppConfig içinde'],
+    ['ioc-di', injection, 'Geçersiz tutar kontrolü ve ödeme çağrısı checkout() içinde'],
+    ['rest', rest, 'Kayıt, 201 Location ve body create() içinde'],
+    ['request-inputs', requestInputs, 'Request body create() içinde kullanılıyor'],
+    ['validation', validation, 'DTO alanları üzerinde Bean Validation'],
+  ]) {
+    assert.doesNotThrow(() => parse(answer), `${id}: valid Java grammar`)
+    const result = evaluateCodeRequirements(answer, codePracticeLibrary[id])
+    assert.equal(result.staticSuccess, false, `${id}: misplaced logic cannot pass`)
+    assert.equal(result.checks.find((check) => check.label === label)?.ok, false, `${id}: targeted feedback`)
+  }
+
+  for (const id of ['annotations', 'beans', 'ioc-di', 'rest', 'request-inputs', 'validation']) {
+    assert.equal(evaluateCodeRequirements(codePracticeLibrary[id].solution, codePracticeLibrary[id]).staticSuccess, true, `${id}: published solution still passes`)
   }
 })
 

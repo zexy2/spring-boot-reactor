@@ -19,7 +19,7 @@ export default function GuidedLessonIntro({
           <span>AKTİF DERS</span>
           <strong>{progress}% yol tamamlandı</strong>
         </div>
-        <div className="lesson-progress-track" aria-label={`Öğrenme yolu yüzde ${progress}`}>
+        <div className="lesson-progress-track" role="progressbar" aria-label="Öğrenme yolu" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
           <span style={{ width: `${progress}%` }} />
         </div>
         <div className="lesson-topline">

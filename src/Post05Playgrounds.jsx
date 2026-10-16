@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import { initialServiceFleet, checkoutResponse, fleetMissionPassed } from './learning/machineChallenges'
 import { createResilienceState, expireResilienceCooldown, runResilienceRequest } from './learning/resilienceSimulation'
 import { createBrokerState, deliverBrokerMessage, publishOrderEvent, redriveDeadLetter, setBrokerConsumerOnline, settleBrokerMessage, MAX_BROKER_DELIVERIES } from './learning/brokerSimulation'
@@ -688,7 +688,7 @@ function BreakerGame({ lesson, spec }) {
     </div>
     <div className="breaker-stage">
       <div className="breaker-caller"><small>CALLER</small><strong>Order</strong><span aria-live="polite">{last?.message || 'Request bekleniyor'}</span></div>
-      <motion.div className={`breaker-switch ${circuit === 'OPEN' ? 'open' : circuit === 'HALF_OPEN' ? 'half-open' : ''}`} animate={{ rotate: circuit === 'OPEN' ? -7 : circuit === 'HALF_OPEN' ? -3 : 0 }}><small>CIRCUIT BREAKER</small><strong>{circuit}</strong><span>Başarısız istek: {consecutiveFailures}/3</span></motion.div>
+      <motion.div role="status" aria-live="polite" aria-atomic="true" className={`breaker-switch ${circuit === 'OPEN' ? 'open' : circuit === 'HALF_OPEN' ? 'half-open' : ''}`} animate={{ rotate: circuit === 'OPEN' ? -7 : circuit === 'HALF_OPEN' ? -3 : 0 }}><small>CIRCUIT BREAKER</small><strong>{circuit}</strong><span>Başarısız istek: {consecutiveFailures}/3</span></motion.div>
       <div className={dependency === 'healthy' ? 'healthy' : 'flaky'}><small>DEPENDENCY</small><strong>Payment</strong><span>{dependency === 'healthy' ? '250ms' : dependency === 'slow' ? '1200ms' : dependency === 'flaky' ? '1200 / 350ms' : '503 · 80ms'}</span></div>
       <div className="failure-pips" aria-label={`Başarısız istek sayısı: ${consecutiveFailures} / 3`}>{[0, 1, 2].map((i) => <i key={i} className={i < consecutiveFailures ? 'hot' : ''} />)}</div>
     </div>
@@ -759,8 +759,8 @@ function BrokerGame({ lesson, spec }) {
     <div className="broker-dead-letter"><div><small>DEAD LETTER QUEUE / DLQ</small><strong>{broker.dlq.length} başarısız mesaj</strong><p>{broker.dlq.length ? broker.dlq.map((event) => `${event.id} (${event.attempts} deneme)`).join(' · ') : `Mesaj ${MAX_BROKER_DELIVERIES} başarısız teslimattan sonra buraya alınır.`}</p></div>
       <button disabled={!broker.dlq.length} onClick={() => setBroker(redriveDeadLetter)}>DLQ'dan geri al</button></div>
     <div className="broker-log"><small>EVENT / ACK / RETRY ZAMAN ÇİZELGESİ</small>
-      {broker.log.length ? <ol>{broker.log.map((entry) => <li key={entry.id} className={`broker-event-${entry.tone}`}><b>{String(entry.id).padStart(2, '0')}</b><span>{entry.message}</span></li>)}</ol>
-        : <p>İlk event'i yayınla. Consumer kapalıyken mesaj biriktirmeyi, sonra ACK kaybı ile duplicate'i dene.</p>}
+      <ol role="log" aria-label="Broker olay günlüğü" aria-live="polite" aria-relevant="additions" aria-atomic="false">{broker.log.map((entry) => <li key={entry.id} className={`broker-event-${entry.tone}`}><b>{String(entry.id).padStart(2, '0')}</b><span>{entry.message}</span></li>)}</ol>
+      {broker.log.length === 0 && <p>İlk event'i yayınla. Consumer kapalıyken mesaj biriktirmeyi, sonra ACK kaybı ile duplicate'i dene.</p>}
     </div>
   </ArcadeFrame>
 }
@@ -789,7 +789,7 @@ function SagaGame({ lesson, spec }) {
   const apply = (fn) => setSaga((state) => fn(state))
   return <ArcadeFrame lesson={lesson} {...spec} className="arcade-saga" footer={footer}>
     <div className="saga-scenario">
-      <div><small>AKTİF ADIM · {saga.phase.toUpperCase()}</small><p aria-live="polite">{next}</p></div>
+      <div role="status" aria-live="polite" aria-atomic="true"><small>AKTİF ADIM · {saga.phase.toUpperCase()}</small><p>{next}</p></div>
       <button onClick={reset}>Simülasyonu sıfırla ↺</button>
     </div>
     <div className="saga-actions" aria-label="Saga işlem adımları">
@@ -828,8 +828,7 @@ function BalancerGame({ lesson, spec }) {
   const candidates = balancer.instances.filter((instance) => instance.registered)
   const stale = balancer.instances.filter((instance) => instance.registered !== (instance.processUp && instance.ready))
   const warming = balancer.instances.filter((instance) => instance.processUp && !instance.ready)
-  const lastInstance = balancer.instances.find((instance) => instance.id === balancer.lastRoute)
-  const lastFailed = balancer.lastRoute === 'NO_INSTANCE' || (lastInstance && (!lastInstance.processUp || !lastInstance.ready))
+  const lastFailed = balancer.lastRouteSucceeded === false
   const maxRequests = Math.max(...balancer.instances.map((instance) => instance.requests), 1)
   const apply = (fn) => setBalancer((state) => fn(state))
   const footer = stale.length
@@ -865,7 +864,7 @@ function BalancerGame({ lesson, spec }) {
     <div className="balancer-flow" aria-label="Discovery ve load balancing akışı">
       <div><small>CLIENT</small><strong>GET /orders</strong><span>request #{balancer.totalRequests + 1}</span></div>
       <i>→</i>
-      <div className="discovery-box"><small>SERVICE DISCOVERY · READY</small><strong>{candidates.length ? candidates.map((instance) => instance.id).join(', ') : 'NO INSTANCE'}</strong><span>Health check READY adayları verir</span></div>
+      <div className="discovery-box"><small>SERVICE DISCOVERY · REGISTRY</small><strong>{candidates.length ? candidates.map((instance) => instance.id).join(', ') : 'NO INSTANCE'}</strong><span>Son health check kaydı; güncel olmayabilir</span></div>
       <i>→</i>
       <div className="round-robin-box"><small>LOAD BALANCER</small><strong>ROUND ROBIN</strong><span>Adaylardan birini seçer</span></div>
       <i>→</i>
@@ -1446,7 +1445,6 @@ function RollbackGame({ lesson,spec }) {
   const traffic=deploymentTraffic(release)
   const breach=release.errorRate>=ROLLBACK_ERROR_THRESHOLD
   const rolled=release.status==='ROLLED_BACK'
-  const rollbackAllowed=breach&&release.dbCompatible&&!rolled
   const footer=release.blockedReason
     ?? (rolled
     ? 'Application rollback tamamlandı: trafik v1.4.1’e döndü. Telemetry ve root cause analizi devam eder.'

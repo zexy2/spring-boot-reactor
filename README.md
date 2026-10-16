@@ -58,7 +58,11 @@ flowchart LR
     E --> A
 ```
 
-Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıcı içi alıştırmalardır**. Kod boşluğu sorularında yalnızca eksik ifade yazılır; doğru yazım kontrol edilir ve hatalı denemelerde geri bildirim sunulur. Daha kapsamlı Java görevlerinde gereksinim taraması ve uygun olduğunda sözdizimi ayrıştırması yapılır. Bu kontroller **Java derlemesi, tür denetimi veya davranış testi değildir**; canlı mikroservis ağı ya da Kubernetes kümesi de çalıştırılmaz.
+Kod pratiği ve laboratuvarlar, ilgili kavramı anlamayı hedefleyen **tarayıcı içi alıştırmalardır**. Kod boşluğu sorularında yalnızca eksik ifade yazılır; doğru yazım kontrol edilir ve hatalı denemelerde geri bildirim sunulur. Daha kapsamlı Java görevlerinde gereksinim taraması ve uygun olduğunda sözdizimi ayrıştırması yapılır. Java sözdizimi kontrolü ayrı bir Web Worker içinde çalışır; yavaş ayrıştırma ana arayüzü kilitlemez. Worker yüklenemez veya zaman aşımına uğrarsa doğrulanmamış kod tamamlandı sayılmaz ve yeniden denenebilir. Bu kontroller **Java derlemesi, tür denetimi veya davranış testi değildir**; canlı mikroservis ağı ya da Kubernetes kümesi de çalıştırılmaz.
+
+Geliştirme sırasında `npm run test:java` komutu, **uygulamaya gömülü 10 Java Core örnek çözümünü** JDK 21 ile gerçekten derleyip sınırlı davranış kontrollerinden geçirir. GitHub Actions bu kalite kontrolünü de çalıştırır. Bu süreç öğrencinin tarayıcıya yazdığı kodu derlemez veya çalıştırmaz; örnek çözümlerin hatalı yayımlanma riskini azaltır.
+
+`npm run test:spring` ayrıca **9 Spring örnek çözümünü** Maven ile çözümlenen gerçek Spring Boot 3.5 bağımlılıkları karşısında JDK 21 ile derler; Spring context, MockMvc HTTP eşlemesi, Bean Validation, JPA sorgu ayrıştırma ve servis davranışlarını test eder. Transaction senaryosu H2 veritabanında Spring AOP proxy üzerinden başarılı commit, başarısız credit sonrası rollback ve geçersiz tutar korumasını doğrular. Bu geliştirici/CI kontrolü için JDK 21 ve Maven gerekir. Öğrencinin kodu hâlâ yalnızca tarayıcıda statik olarak değerlendirilir; H2 kontrolü dağıtık transaction veya production veritabanı testi değildir.
 
 <a id="curriculum"></a>
 ## 14 aşamalı öğrenme yolu
@@ -96,9 +100,16 @@ Terminalin gösterdiği yerel adrese (genellikle `http://localhost:5173`) git. C
 | Komut | İşlevi |
 | --- | --- |
 | `npm run dev` | Vite geliştirme sunucusunu açar. |
+| `npm run lint` | ESLint kontrollerini sıfır uyarı toleransıyla çalıştırır. |
 | `npm test` | Projenin Node.js testlerini çalıştırır. |
 | `npm run build` | Üretim dosyalarını `dist/` dizinine oluşturur. |
+| `npm run check:bundle` | `dist/assets` içindeki JS/CSS dosyalarının gzip boyutlarını production bütçelerine karşı doğrular. Önce `npm run build` gerekir. |
+| `npm run check:metadata` | Production build içindeki canonical, sosyal paylaşım metadata'sı, manifest, ikonlar, robots ve sitemap dosyalarını doğrular. Önce GitHub Pages taban yolu ile `npm run build` gerekir. |
+| `npm run check:security` | Production bağımlılıklarını `npm audit` ile high/critical açıklar için denetler. |
 | `npm run preview` | Oluşturulmuş üretim çıktısını yerel olarak önizler. |
+| `npm run test:java` | Depodaki 10 Java Core referans çözümünü JDK 21 ile derler ve davranış kontrollerinden geçirir. |
+| `npm run test:spring` | Depodaki 9 Spring referans çözümünü gerçek Spring Boot bağımlılıklarıyla doğrular. |
+| `npm run test:a11y` | Ana öğrenme ekranı ve temsilî etkileşimli ders için Axe ile WCAG A/AA serious/critical ihlal taraması yapar. |
 | `npm run test:e2e` | GitHub Pages sürümünü önce yeniden derler, ardından masaüstü ve mobil Chromium'da sınar. İlk kullanımda `npx playwright install chromium` gerekir. |
 
 <a id="architecture"></a>
@@ -121,9 +132,9 @@ flowchart TD
 | `src/learning/` | Öğrenme durumu, alıştırma mantığı ve kavrama özel simülasyonlar. |
 | `src/Post05Playgrounds.jsx` | İleri konuların etkileşimli çalışma alanları. |
 | `tests/` | Öğrenme mantığı ve simülasyonları doğrulayan otomatik testler. |
-| `.github/workflows/deploy.yml` | `main` dalındaki değişikliklerin test edilmesi, derlenmesi ve GitHub Pages'e dağıtılması. |
+| `.github/workflows/deploy.yml` | PR'larda lint, production bağımlılık güvenliği, Node/Java/Spring testleri, Axe erişilebilirlik dahil masaüstü/mobil tarayıcı testleri, production derlemesi, web metadata doğrulaması ve bundle bütçesi; `main` üzerinde aynı kontroller başarılıysa doğrulanan çıktının GitHub Pages'e dağıtılması. |
 
-**Teknoloji:** React, Vite, JavaScript, `java-parser`, Motion ve Node.js test çalıştırıcısı. GitHub Pages üzerinden statik olarak yayımlanır. Üretim derlemesinde Vite taban yolu `/spring-boot-reactor/` olarak ayarlanır.
+**Teknoloji:** React, Vite, JavaScript, `java-parser`, Motion ve Node.js test çalıştırıcısı. Geliştirme ve CI tabanı Node.js 22'dir (`.nvmrc`, `engines.node`). GitHub Pages üzerinden statik olarak yayımlanır. Üretim derlemesinde Vite taban yolu `/spring-boot-reactor/` olarak ayarlanır.
 
 <a id="progress"></a>
 ## İlerleme ve verilerin

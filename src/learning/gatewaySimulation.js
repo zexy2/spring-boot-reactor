@@ -115,7 +115,7 @@ export function runGatewayRequest(state, {
   let paymentCharges = state.paymentCharges
   let attempts = 0
   let status = 504
-  let responseDetail = ''
+  let responseDetail
   let serviceHits = service.hits
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
