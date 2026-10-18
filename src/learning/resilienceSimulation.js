@@ -36,7 +36,7 @@ export function runResilienceRequest(previous, { dependency = 'slow', timeout = 
   let elapsedMs = 0
   let blocked = 0
   let outcome = 'error'
-  let message = ''
+  let message
 
   if (circuit === 'OPEN') {
     blocked = 1

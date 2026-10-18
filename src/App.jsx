@@ -10,7 +10,7 @@ import { InterviewMode, MixedInterviewPanel, RoleInterviewPanel } from './compon
 import { lessons, phases } from './data/curriculum'
 import { processScenarios } from './data/processScenarios'
 import { architectureScenarios } from './data/architectureScenarios'
-import { arrangeChoices, hashString } from './learning/choiceUtils'
+import { arrangeChoices, hashString, shuffleChoices } from './learning/choiceUtils'
 import { buildCodePractice } from './learning/codePractice'
 import { buildCheckpointQuestions, buildRetryQuestion } from './learning/checkpointQuestions'
 import { conceptAliases, escapeRegex, getConceptDetail, getLessonTerms, getPrerequisites, normalizeConcept } from './learning/concepts'
@@ -48,14 +48,6 @@ const flow = [
   { label: 'Service', sub: 'iş kuralı', detail: 'Business rule ve use-case burada yürür.' },
   { label: 'Repository', sub: 'veri erişimi', detail: 'Gerekiyorsa kalıcı veriye erişim yapılır.' },
   { label: 'Database', sub: 'kalıcı veri', detail: 'Veri okunur veya değiştirilir.' },
-]
-
-const primer = [
-  { token: 'class', title: 'Kalıp', detail: 'Yeni bir Java tipi tanımlar. Object’ler bu kalıptan üretilebilir.', sample: 'class Product { }' },
-  { token: '()', title: 'Çağrı / parametre alanı', detail: 'Method çağrısı veya tanımında parantez görürsün. Constructor da parantez kullanır.', sample: 'product.label()' },
-  { token: 'new', title: 'Object oluştur', detail: 'Bir class’tan yeni object oluştururken kullanılır.', sample: 'new Product()' },
-  { token: '@', title: 'Annotation', detail: 'Koda metadata ekler. Tek başına object oluşturmaz.', sample: '@Override' },
-  { token: '<T>', title: 'Generic tip', detail: 'Bir yapı içinde hangi tipin taşındığını belirtir.', sample: 'List<Product>' },
 ]
 
 function InteractiveCode({ code, concepts, onConcept }) {
@@ -103,22 +95,36 @@ const readinessMetricMeta = [
   ['interview', 'Mülakat', '60 saniyelik mülakat turlarını tamamla.'],
 ]
 
-function ReadinessPanel({ readiness, onClose }) {
+function ReadinessPanel({ readiness, onClose, onDismiss, triggerRef }) {
   const closeRef = useRef(null)
+  const panelRef = useRef(null)
   const metrics = readinessMetricMeta.map(([key, label, advice]) => ({ key, label, advice, value: readiness[key] ?? 0 }))
   const weakest = metrics.reduce((current, metric) => (metric.value < current.value ? metric : current), metrics[0])
 
   useEffect(() => {
     closeRef.current?.focus()
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+    const handleOutsidePointer = (event) => {
+      if (!panelRef.current?.contains(event.target) && !triggerRef.current?.contains(event.target)) {
+        // Keep the pointer target focused instead of jumping back to the trigger.
+        onDismiss()
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+    document.addEventListener('pointerdown', handleOutsidePointer)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handleOutsidePointer)
+    }
+  }, [onClose, onDismiss, triggerRef])
 
   return (
-    <aside className="readiness-panel" role="dialog" aria-modal="false" aria-labelledby="readiness-title">
+    <aside ref={panelRef} className="readiness-panel" role="dialog" aria-modal="false" aria-labelledby="readiness-title">
       <div className="readiness-panel-head">
         <div><small id="readiness-title">MÜLAKAT HAZIRLIK</small><strong>{readiness.score}%</strong></div>
         <button ref={closeRef} onClick={onClose} aria-label="Hazırlık detayını kapat">×</button>
@@ -128,7 +134,7 @@ function ReadinessPanel({ readiness, onClose }) {
         {metrics.map((metric) => (
           <div className="readiness-metric" key={metric.key}>
             <span><small>{metric.label}</small><b>{metric.value}%</b></span>
-            <i><em style={{ width: `${metric.value}%` }} /></i>
+            <i role="progressbar" aria-label={`${metric.label} düzeyi`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={metric.value}><em style={{ width: `${metric.value}%` }} /></i>
           </div>
         ))}
       </div>
@@ -160,35 +166,6 @@ function earnedLessonXp(lesson, record, completed) {
     : 0
   const interviewScore = Math.max(0, Math.min(4, Number(record.interviewBestScore) || 0)) / 4
   return Math.round(max * (0.6 + (accuracy * 0.2) + (recallScore * 0.1) + (interviewScore * 0.1)))
-}
-
-function PrimerLab() {
-  const [index, setIndex] = useState(0)
-  const item = primer[index]
-
-  return (
-    <section className="primer-lab" aria-label="Kod okuma laboratuvarı">
-      <div className="primer-copy">
-        <span className="eyebrow">SIFIRDAN KOD OKUMA LAB</span>
-        <h2>Önce gördüğün sembolü çöz.</h2>
-        <p>Spring’e geçmeden önce Java kodunu okuyabilmen gerekiyor. Aşağıdaki parçaları tek tek tıkla.</p>
-      </div>
-      <div className="primer-grid">
-        <div className="primer-tokens">
-          {primer.map((part, partIndex) => (
-            <button key={part.token} className={partIndex === index ? 'active' : ''} onClick={() => setIndex(partIndex)}>
-              <code>{part.token}</code><span>{part.title}</span>
-            </button>
-          ))}
-        </div>
-        <motion.div key={item.token} className="primer-detail" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <code>{item.sample}</code>
-          <h3>{item.title}</h3>
-          <p>{item.detail}</p>
-        </motion.div>
-      </div>
-    </section>
-  )
 }
 
 function LabShell({ eyebrow, title, copy, children, badge }) {
@@ -801,7 +778,7 @@ function ProcessScenarioLab({ lesson }) {
       badge={`${solvedCount}/${scenarios.length} çözüldü`}
     >
       <div className="process-scenario">
-        <div className="process-scenario-progress" aria-label={`Senaryo ${activeIndex + 1}/${scenarios.length}; ${solvedCount} tamamlandı`}>
+        <div className="process-scenario-progress" role="progressbar" aria-label={`Tamamlanan senaryo; aktif senaryo ${activeIndex + 1}/${scenarios.length}`} aria-valuemin={0} aria-valuemax={scenarios.length} aria-valuenow={solvedCount}>
           {scenarios.map((item, index) => (
             <span
               key={item.prompt}
@@ -1879,6 +1856,106 @@ const labExperiments = {
       ['Error rate normale döndü, regression test eklendi', 'Result', 'Sonuç ve kalıcı iyileştirmeyi kanıtlar.'],
     ],
   },
+  'requirement-discovery': {
+    eyebrow: 'DISCOVERY LAB', title: 'İstek değil, problem alanını netleştir.', badge: 'WHO / WHY / CONSTRAINT',
+    copy: 'Belirsiz bir iş isteğini seç. Hangi sorunun implementation başlamadan önce riski düşürdüğünü gör.',
+    prompt: 'Belirsizlik',
+    choices: [
+      ['“Sipariş iptal edilebilsin”', 'Kuralı sor: kim, hangi durumda, hangi süre içinde?', 'Aynı cümle müşteri, operasyon veya admin için farklı authorization ve state transition anlamına gelebilir.'],
+      ['“Sistem hızlı olsun”', 'Ölçülebilir hedef iste: p95 latency / throughput / yük profili', '“Hızlı” test edilemez. Sayısal SLO, mimari kararın ve acceptance testinin sınırını verir.'],
+      ['“Eski sistem gibi çalışsın”', 'Happy path + edge case + mevcut istisnaları çıkar', 'Legacy davranışın tamamını körlemesine kopyalamak yerine gerçek business invariant ve exception’ları görünür yaparsın.'],
+    ],
+  },
+  'acceptance-criteria': {
+    eyebrow: 'ACCEPTANCE LAB', title: 'Beklentiyi test edilebilir sözleşmeye çevir.', badge: 'GIVEN / WHEN / THEN',
+    copy: 'Acceptance criterion örneğini seç. İyi kriterin gözlenebilir sonuç ve sınır koşulu içermesini karşılaştır.',
+    prompt: 'Kriter',
+    choices: [
+      ['Given stok 0, When sipariş verilir, Then 409 ve stok değişmez', 'Test edilebilir kriter', 'Başlangıç durumu, aksiyon ve gözlenebilir sonuç açık. Otomasyonla doğrudan doğrulanabilir.'],
+      ['“Sipariş ekranı düzgün çalışmalı”', 'Belirsiz kriter', '“Düzgün” ölçülemez; hata durumu, beklenen çıktı ve iş kuralı belirtilmediği için farklı yorumlar oluşur.'],
+      ['Given ödeme timeout, When retry limiti dolar, Then sipariş PENDING_PAYMENT kalır', 'Failure path kriteri', 'Happy path kadar timeout ve retry sonrasındaki business state de acceptance kapsamına girer.'],
+    ],
+  },
+  'user-story-dod': {
+    eyebrow: 'DELIVERY LAB', title: 'Story bitti demek için davranış + kalite kanıtı gerekir.', badge: 'STORY / DOD',
+    copy: 'Teslim adımını seç. User story kapsamı ile takımın Definition of Done standardını ayır.',
+    prompt: 'Teslim sinyali',
+    choices: [
+      ['Acceptance kriterleri geçti', 'Story davranışı doğrulandı', 'Kullanıcı beklentisi karşılandı; bu tek başına takımın tüm kalite kapılarının tamamlandığını kanıtlamaz.'],
+      ['Code review + test + CI + dokümantasyon tamam', 'Definition of Done', 'Takımın tekrar eden kalite standardı her story için aynı teslim eşiğini oluşturur.'],
+      ['Kod localde çalışıyor', 'Done değil', 'Review, otomatik test, integration ve deployability kanıtı olmadan yalnız geliştirici ortamı doğrulanmıştır.'],
+    ],
+  },
+  'scrum-roles': {
+    eyebrow: 'SCRUM ROLE LAB', title: 'Kararı doğru role yönlendir.', badge: 'PO / SM / DEVELOPERS',
+    copy: 'Problemi seç. Scrum rollerinin sorumluluk sınırını ve sık yapılan sahiplik hatasını gör.',
+    prompt: 'Durum',
+    choices: [
+      ['Backlog sırası ve ürün değeri tartışılıyor', 'Product Owner', 'Product Goal ve Product Backlog ordering sorumluluğu Product Owner’dadır.'],
+      ['Takımın impediment’i sprinti blokluyor', 'Scrum Master kolaylaştırır', 'Scrum Master engelin çözülmesini destekler ve Scrum’ın etkili uygulanmasına yardım eder.'],
+      ['Nasıl implement edileceği konuşuluyor', 'Developers', 'Sprint Backlog planı ve teknik uygulama kararları işi yapan Developers tarafından şekillendirilir.'],
+    ],
+  },
+  'scrum-events': {
+    eyebrow: 'EVENT LAB', title: 'Her etkinliğin farklı bir inspection hedefi var.', badge: 'PLAN / DAILY / REVIEW / RETRO',
+    copy: 'İhtiyacı seç. Yanlış toplantıyı doğru amaç için kullanmanın neden akışı bozduğunu gör.',
+    prompt: 'İhtiyaç',
+    choices: [
+      ['Sprint Goal ve seçilecek işler netleşecek', 'Sprint Planning', 'Why, What ve How konuşularak Sprint Goal ve başlangıç Sprint Backlog’u oluşturulur.'],
+      ['Ürün increment’i stakeholder ile incelenecek', 'Sprint Review', 'Ürün sonucu ve çevredeki değişimler değerlendirilir; backlog buna göre adapte edilebilir.'],
+      ['Takım çalışma biçimini iyileştirecek', 'Sprint Retrospective', 'People, process ve araçlar incelenir; bir sonraki sprint için uygulanabilir iyileştirme seçilir.'],
+    ],
+  },
+  'sprint-backlog': {
+    eyebrow: 'SPRINT PLAN LAB', title: 'Kapasiteyi doldurmak değil, Sprint Goal’u korumak.', badge: 'GOAL / CAPACITY / ADAPT',
+    copy: 'Plan kararını seç. Sprint Backlog’un sabit kontrat değil, goal odaklı yaşayan plan olduğunu gör.',
+    prompt: 'Plan durumu',
+    choices: [
+      ['8 puan kapasiteye 13 puan iş alındı', 'Over-capacity riski', 'Kapasiteyi sistematik aşmak tahmin edilebilirliği düşürür ve Sprint Goal’u riske atar.'],
+      ['Yeni bilgi çıktı, görev adımları değişti', 'Sprint Backlog adapte edilir', 'Developers Sprint Goal korunurken planın detayını sprint boyunca güncelleyebilir.'],
+      ['Urgent iş Sprint Goal’u bozuyor', 'PO ile kapsam/goal etkisini görünür yap', 'Yeni işi sessizce eklemek yerine trade-off konuşulur; mevcut iş çıkarma veya yeniden planlama gerekebilir.'],
+    ],
+  },
+  'documentation-types': {
+    eyebrow: 'DOCUMENTATION LAB', title: 'Belgeyi okuyucunun kararına göre seç.', badge: 'ADR / RUNBOOK / API',
+    copy: 'Bilgi ihtiyacını seç. Her şeyi tek wiki sayfasına koymak yerine doğru belge tipini eşleştir.',
+    prompt: 'Bilgi ihtiyacı',
+    choices: [
+      ['Neden PostgreSQL seçildi?', 'ADR', 'Alternatifler, trade-off ve karar gerekçesi gelecekte aynı tartışmanın baştan yapılmasını önler.'],
+      ['Gece 02:00’de queue birikti, ne yaparım?', 'Runbook', 'Operasyon adımları, doğrulama sinyalleri ve rollback yolu incident anında hızlı uygulanabilir olmalıdır.'],
+      ['Client hangi endpoint ve payload’ı kullanacak?', 'API contract / OpenAPI', 'Request, response, status ve schema makinece okunabilir sözleşmede tutulur.'],
+    ],
+  },
+  'knowledge-transfer': {
+    eyebrow: 'HANDOVER LAB', title: 'Bilgi aktarımı sunumla bitmez; bağımsız icra ile kanıtlanır.', badge: 'DOC / SHADOW / REVERSE-SHADOW',
+    copy: 'Handover adımını seç. Pasif anlatımdan gerçek operasyonel sahipliğe geçişi gör.',
+    prompt: 'Aktarım adımı',
+    choices: [
+      ['Yeni ekip mevcut ekibi izliyor', 'Shadowing', 'Bağlam ve gerçek operasyon akışı görülür; yine de bağımsız çalışabildiği henüz kanıtlanmaz.'],
+      ['Yeni ekip işlemi yapıyor, eski ekip gözlüyor', 'Reverse shadowing', 'Bilginin gerçekten transfer edildiğini ve boşlukların görünür olduğunu güçlü biçimde doğrular.'],
+      ['Runbook var ama kimse denemedi', 'Eksik transfer', 'Doküman tek başına yeterli değildir; erişim, komut doğruluğu ve failure path pratikte test edilmelidir.'],
+    ],
+  },
+  'incident-triage': {
+    eyebrow: 'INCIDENT LAB', title: 'Önce etkiyi sınırla, sonra kök nedeni derinleştir.', badge: 'SEVERITY / EVIDENCE / MITIGATION',
+    copy: 'Incident sinyalini seç. Triage sırasında kanıt toplama ile hızlı risk azaltma kararını ayır.',
+    prompt: 'Sinyal',
+    choices: [
+      ['Deploy sonrası error rate %2’den %35’e çıktı', 'Yeni deploy güçlü korelasyon; rollback değerlendir', 'Zaman korelasyonu tek başına kök neden kanıtı değildir ama blast radius büyürken düşük riskli rollback güçlü mitigation olabilir.'],
+      ['Bir kullanıcı 500 aldı', 'Önce kapsam ve tekrar üretilebilirlik ölç', 'Tek örnek severity belirlemek için yetersizdir; error rate, etkilenen tenant ve dependency sinyalleri gerekir.'],
+      ['CPU normal ama DB latency yükseldi', 'Dependency evidence topla', 'Uygulama CPU’su normal diye sistemi sağlıklı sayamazsın; downstream latency request zincirini bozabilir.'],
+    ],
+  },
+  'root-cause-prevention': {
+    eyebrow: 'RCA LAB', title: 'Semptomu kapatmak ayrı, tekrarını önlemek ayrı.', badge: 'HYPOTHESIS / REPRO / GUARD',
+    copy: 'RCA adımını seç. Kanıtsız “root cause” ilanı ile doğrulanmış neden ve kalıcı guard arasındaki farkı gör.',
+    prompt: 'RCA adımı',
+    choices: [
+      ['“DB yavaştı” denildi ama ölçüm yok', 'Hipotez', 'Log, trace veya kontrollü reproduction olmadan bu bir olasılıktır; kök neden diye kapatılmamalıdır.'],
+      ['Aynı query load testte latency spike üretiyor', 'Reproduction kanıtı', 'Kontrollü tekrar üretim neden-sonuç bağını güçlendirir ve fix’i doğrulamak için baseline verir.'],
+      ['Index eklendi + regression test + alert threshold', 'Prevention guard', 'Fix yalnız bug’ı kapatmaz; test ve gözlemlenebilirlik aynı failure mode’un geri dönmesini daha erken yakalar.'],
+    ],
+  },
 }
 
 function DecisionLab({ lesson }) {
@@ -2022,7 +2099,7 @@ function SynchronousCommunicationLab() {
       window.clearTimeout(waitTimer)
       window.clearTimeout(finishTimer)
     }
-  }, [runId, reduced])
+  }, [runId, reduced, succeeds])
 
   const outcome = phase === 'idle'
     ? ['HAZIR', 'Request henüz gönderilmedi.', 'Order Service, Payment cevabını bekleyen senkron çağrı yapacak.']
@@ -2552,12 +2629,34 @@ function DailyStudyPanel({ plan, dueCount, onOpen }) {
 
 function RequestLab() {
   const [step, setStep] = useState(0)
+  const flowTrackRef = useRef(null)
   const reduced = useReducedMotion()
+  // Follow the OS preference until the learner explicitly chooses playback.
+  const [playbackPreference, setPlaybackPreference] = useState(null)
+  const playing = playbackPreference ?? !reduced
 
   useEffect(() => {
-    const id = window.setInterval(() => setStep((current) => (current + 1) % flow.length), 2200)
+    if (!playing) return undefined
+    const id = window.setInterval(() => {
+      if (!document.hidden) setStep((current) => (current + 1) % flow.length)
+    }, 2200)
     return () => window.clearInterval(id)
-  }, [])
+  }, [playing])
+
+  useEffect(() => {
+    const track = flowTrackRef.current
+    if (!track || track.scrollWidth <= track.clientWidth + 1) return
+
+    const active = track.querySelector('[aria-current="step"]')
+    if (!active) return
+    const centeredLeft = active.offsetLeft - (track.clientWidth - active.offsetWidth) / 2
+    track.scrollTo({ left: centeredLeft, behavior: reduced ? 'auto' : 'smooth' })
+  }, [step, reduced])
+
+  const chooseStep = (next) => {
+    setPlaybackPreference(false)
+    setStep((next + flow.length) % flow.length)
+  }
 
   return (
     <section className="request-lab" aria-label="Canlı request simülatörü">
@@ -2565,12 +2664,12 @@ function RequestLab() {
         <span className="eyebrow">CANLI REQUEST LAB</span>
         <h2>Bir HTTP isteğinin içinden geç.</h2>
         <p>{flow[step].detail}</p>
-        <div className="lab-readout"><span>Şu an</span><strong>{flow[step].label}</strong><code>{flow[step].sub}</code></div>
+        <div className="lab-readout" aria-live={playing ? 'off' : 'polite'} aria-atomic="true"><span>Şu an</span><strong>{flow[step].label}</strong><code>{flow[step].sub}</code></div>
       </div>
-      <div className="flow-track">
+      <div className="flow-track" ref={flowTrackRef}>
         <div className="flow-line" />
         {flow.map((node, index) => (
-          <button key={node.label} className={`flow-node ${index === step ? 'active' : ''} ${index < step ? 'visited' : ''}`} onClick={() => setStep(index)}>
+          <button key={node.label} className={`flow-node ${index === step ? 'active' : ''} ${index < step ? 'visited' : ''}`} aria-current={index === step ? 'step' : undefined} onClick={() => chooseStep(index)}>
             <span className="node-index">{String(index + 1).padStart(2, '0')}</span>
             <strong>{node.label}</strong>
             <small>{node.sub}</small>
@@ -2584,9 +2683,10 @@ function RequestLab() {
         >REQ</motion.div>
       </div>
       <div className="lab-controls">
-        <button onClick={() => setStep((step - 1 + flow.length) % flow.length)}>← Önceki</button>
+        <button type="button" onClick={() => chooseStep(step - 1)}>← Önceki</button>
         <span>{step + 1} / {flow.length}</span>
-        <button onClick={() => setStep((step + 1) % flow.length)}>Sonraki →</button>
+        <button type="button" onClick={() => chooseStep(step + 1)}>Sonraki →</button>
+        <button type="button" aria-label="Otomatik oynatma" aria-pressed={playing} onClick={() => setPlaybackPreference(!playing)}>{playing ? '⏸ Durdur' : '▶ Oynat'}</button>
       </div>
     </section>
   )
@@ -2652,7 +2752,7 @@ const guidedLessonPhases = [
   { id: 'recall', label: 'HATIRLA / TEST ET', note: 'Recall + checkpoint' },
 ]
 
-function GuidedLearningLesson({ lesson, completed, status, learningRecordData, codePassed, onComplete, onQuizAnswer, onCodeComplete, onCodeDraftChange, onDebugAttempt, onActiveRecall, onInterviewAttempt, onNext, nextLesson, index, total }) {
+function GuidedLearningLesson({ lesson, completed, status, learningRecordData, codePassed, restoreVersion, onComplete, onQuizAnswer, onCodeComplete, onCodeDraftChange, onDebugAttempt, onActiveRecall, onInterviewAttempt, onNext, nextLesson, index, total }) {
   const prerequisites = useMemo(() => getPrerequisites(lesson), [lesson])
   const lessonTerms = useMemo(() => getLessonTerms(lesson), [lesson])
   const hasCodeWorkout = useMemo(() => Boolean(buildCodePractice(lesson)), [lesson])
@@ -2743,7 +2843,7 @@ function GuidedLearningLesson({ lesson, completed, status, learningRecordData, c
           <div className="guided-lab-divider"><span>ŞİMDİ SEN DENE</span><p>Önce kontrollü deney, sonra serbestçe kurcala.</p></div>
           <LessonLab lesson={lesson} />
           <MemoryGame lesson={lesson} />
-          <CodeWorkout lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
+          <CodeWorkout key={`${lesson.id}-${restoreVersion}`} lesson={lesson} passed={codePassed} savedDraft={learningRecordData.codeDraft} savedDraftUpdatedAt={learningRecordData.codeDraftUpdatedAt} onDraftChange={onCodeDraftChange} onComplete={onCodeComplete} />
           <DebugWorkout lesson={lesson} record={learningRecordData} onAttempt={onDebugAttempt} />
           <div className="phase-actions"><button type="button" className="reveal" onClick={() => selectPhase('understand')}>← Anla</button><button type="button" className="complete-button" onClick={() => selectPhase('recall')}>Hatırla / test et →</button></div>
         </div>
@@ -2775,17 +2875,26 @@ function GuidedLearningLesson({ lesson, completed, status, learningRecordData, c
 
 function Quiz({ lesson, completed, record, onComplete, onAnswer, hasCodeWorkout = false, codePassed = false }) {
   const baseQuestions = useMemo(() => buildCheckpointQuestions(lesson), [lesson])
-  const adaptivePlan = useMemo(() => buildAdaptiveMasteryPlan(baseQuestions, record), [lesson.id, baseQuestions])
+  // The lesson article is keyed by lesson.id, so each quiz mount snapshots the
+  // incoming mastery record once. Answer updates must not reshuffle the active
+  // adaptive deck while the learner is in the middle of the checkpoint.
+  const [sessionRecord] = useState(() => record)
+  const adaptivePlan = useMemo(() => buildAdaptiveMasteryPlan(baseQuestions, sessionRecord), [baseQuestions, sessionRecord])
   const conceptIds = useMemo(() => baseQuestions.map((item) => item.conceptId), [baseQuestions])
   const checkpoint = checkpointMasteryState(record, conceptIds)
   const masteredConcepts = new Set(checkpoint.masteredConceptIds)
   const retryAttempts = checkpoint.retryAttempts
-  const buildResumeQuestions = () => adaptivePlan.questions
-    .filter((item) => !masteredConcepts.has(item.conceptId))
-    .map((item) => {
-      const retryAttempt = retryAttempts[item.conceptId] ?? 0
-      return retryAttempt > 0 ? buildRetryQuestion(item, lesson, retryAttempt) : item
-    })
+  const resumeStateRef = useRef(null)
+  resumeStateRef.current = { masteredConcepts, retryAttempts, lesson }
+  const buildResumeQuestions = useCallback(() => {
+    const resumeState = resumeStateRef.current
+    return adaptivePlan.questions
+      .filter((item) => !resumeState.masteredConcepts.has(item.conceptId))
+      .map((item) => {
+        const retryAttempt = resumeState.retryAttempts[item.conceptId] ?? 0
+        return retryAttempt > 0 ? buildRetryQuestion(item, resumeState.lesson, retryAttempt) : item
+      })
+  }, [adaptivePlan.questions])
   const [questions, setQuestions] = useState(buildResumeQuestions)
   const [questionIndex, setQuestionIndex] = useState(0)
   const [picked, setPicked] = useState(null)
@@ -2800,7 +2909,7 @@ function Quiz({ lesson, completed, record, onComplete, onAnswer, hasCodeWorkout 
     setQuestions(buildResumeQuestions())
     setQuestionIndex(0)
     setPicked(null)
-  }, [lesson.id, adaptivePlan])
+  }, [lesson.id, buildResumeQuestions])
 
   useEffect(() => {
     if (mastered && completionAllowed && !completed) onComplete()
@@ -2871,99 +2980,20 @@ function Quiz({ lesson, completed, record, onComplete, onAnswer, hasCodeWorkout 
   )
 }
 
-function Lesson({ lesson, completed, onComplete, onNext, nextLesson, index, total }) {
-  const prerequisites = useMemo(() => getPrerequisites(lesson), [lesson])
-  const lessonTerms = useMemo(() => getLessonTerms(lesson), [lesson])
-  const concepts = useMemo(() => {
-    const items = [...prerequisites, ...lessonTerms.map(([term, meaning]) => ({ term, meaning, lessonId: lesson.id, lessonTitle: lesson.title }))]
-    return items.filter((item, itemIndex) => items.findIndex((other) => normalizeConcept(other.term) === normalizeConcept(item.term)) === itemIndex)
-  }, [lesson, lessonTerms, prerequisites])
-  const [selectedConcept, setSelectedConcept] = useState(null)
-
-  useEffect(() => setSelectedConcept(null), [lesson.id])
-
-  return (
-    <AnimatePresence mode="wait">
-      <motion.article key={lesson.id} className="lesson" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .25 }}>
-        <div className="lesson-topline">
-          <span>DERS {index + 1}/{total}</span><span>{lesson.minutes} dk</span><span>+{lesson.xp} XP</span><span>{completed ? 'TAMAMLANDI' : 'AKTİF DERS'}</span>
-        </div>
-        <h1>{lesson.title}</h1>
-        <p className="hook">{lesson.hook}</p>
-
-        {prerequisites.length > 0 && (
-          <section className="prerequisite-section">
-            <div className="section-label"><span>BUNU BİLMİYORSAN ÖNCE BURAYA BAK</span><b>{prerequisites.length} temel kavram</b></div>
-            <p>Ders kilitli değil. Eksik kelime varsa tıkla, 20 saniyede hatırla, sonra devam et.</p>
-            <div className="prerequisite-list">
-              {prerequisites.map((concept) => <button type="button" key={`${lesson.id}-${concept.term}`} onClick={() => setSelectedConcept(concept)}><code>{concept.term}</code><span>{concept.meaning}</span></button>)}
-            </div>
-          </section>
-        )}
-
-        {lessonTerms.length > 0 && (
-          <section className="terms-section">
-            <div className="section-label"><span>ÖNCE BU KELİMELER · TIKLA VE PARÇALA</span><b>{lessonTerms.length} kavram</b></div>
-            <div className="term-grid">
-              {lessonTerms.map(([term, meaning]) => (
-                <button type="button" className="term-card" key={term} onClick={() => setSelectedConcept({ term, meaning, lessonId: lesson.id, lessonTitle: lesson.title })}><code>{term}</code><p>{meaning}</p><small>detayı aç +</small></button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <AnimatePresence mode="wait">
-          {selectedConcept && <ConceptInspector key={`${lesson.id}-${selectedConcept.term}`} concept={selectedConcept} lesson={lesson} onClose={() => setSelectedConcept(null)} />}
-        </AnimatePresence>
-
-        <div className="analogy">
-          <span className="section-label">AKILDA KALSIN</span>
-          <p>{lesson.story}</p>
-        </div>
-
-        <div className="lesson-grid">
-          <section>
-            <span className="section-label">BİLMEN GEREKEN</span>
-            <ul className="points">{lesson.points.map((point) => <li key={point}>{point}</li>)}</ul>
-          </section>
-          <section className="code-card">
-            <div className="code-head"><span>GERÇEK KOD / MODEL · RENKLİ KAVRAMA TIKLA</span><i>{codeLanguageForLesson(lesson)}</i></div>
-            <pre><InteractiveCode code={lesson.code} concepts={concepts} onConcept={setSelectedConcept} /></pre>
-          </section>
-        </div>
-
-        {lesson.codeNotes?.length > 0 && (
-          <section className="code-walkthrough">
-            <div className="section-label"><span>KODU SATIR SATIR SÖK</span><b>{lesson.codeNotes.length} parça</b></div>
-            <div className="walkthrough-list">
-              {lesson.codeNotes.map(([fragment, explanation], noteIndex) => (
-                <div className="walkthrough-row" key={`${fragment}-${noteIndex}`}>
-                  <code>{fragment}</code><p>{explanation}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <MemoryGame lesson={lesson} />
-        <Quiz lesson={lesson} completed={completed} onComplete={onComplete} />
-        {nextLesson && (
-          <button className={`next-lesson ${completed ? 'ready' : 'preview'}`} onClick={onNext}>
-            <span className="next-lesson-copy">
-              <small>DERS {index + 2}/{total} · SONRAKİ KONU</small>
-              <strong>{nextLesson.title}</strong>
-              <em>{nextLesson.hook}</em>
-              {!completed && <span className="next-lesson-note">Kilit yok. Buraya geçebilirsin; mevcut dersin checkpoint'i tamamlanmış sayılmaz.</span>}
-            </span>
-            <b>→</b>
-          </button>
-        )}
-      </motion.article>
-    </AnimatePresence>
-  )
-}
-
 const LESSON_IDS = lessons.map((lesson) => lesson.id)
+
+// Editor drafts have their own fast path. Merge them into other progress writes
+// until a quiet moment allows the expensive roadmap/readiness React update.
+function mergePendingCodeDrafts(learning, pendingDrafts) {
+  let updated = learning
+  for (const [id, draftRecord] of pendingDrafts) {
+    const current = updated[id] ?? {}
+    if (current.codeDraft === draftRecord.codeDraft && current.codeDraftUpdatedAt === draftRecord.codeDraftUpdatedAt) continue
+    if (updated === learning) updated = { ...learning }
+    updated[id] = { ...current, ...draftRecord }
+  }
+  return updated
+}
 
 function App() {
   const [initialState] = useState(() => {
@@ -2975,7 +3005,10 @@ function App() {
   })
   const [completed, setCompleted] = useState(initialState.completed)
   const [learning, setLearning] = useState(initialState.learning)
+  const [progressRestoreVersion, setProgressRestoreVersion] = useState(0)
   const latestProgress = useRef(initialState)
+  const pendingCodeDrafts = useRef(new Map())
+  const pendingDraftTimer = useRef(null)
   const savedSnapshot = useRef(initialState.snapshotRaw ?? null)
   const savedProgress = useRef(initialState.snapshotRaw !== null && !initialState.blocked
     ? { completed: initialState.completed, learning: initialState.learning }
@@ -2993,6 +3026,7 @@ function App() {
   const [storageConflict, setStorageConflict] = useState(false)
   const [recoveryIssue, setRecoveryIssue] = useState(initialState.blocked ? initialState.reason : '')
   const [roadmapOpen, setRoadmapOpen] = useState(false)
+  const roadmapToggleRef = useRef(null)
   const [roadmapQuery, setRoadmapQuery] = useState('')
   const [roadmapFilter, setRoadmapFilter] = useState('all')
   const [readinessOpen, setReadinessOpen] = useState(false)
@@ -3046,6 +3080,8 @@ function App() {
   const activeStatus = learningStatus(learning, activeId, completedSet.has(activeId))
   const activeHasCodeWorkout = useMemo(() => Boolean(buildCodePractice(activeLesson)), [activeLesson])
 
+  useEffect(() => () => window.clearTimeout(pendingDraftTimer.current), [])
+
   useEffect(() => {
     if (recoveryIssue || storageConflict) return
     if (savedProgress.current?.completed === completed && savedProgress.current?.learning === learning) {
@@ -3057,9 +3093,10 @@ function App() {
       return
     }
     try {
-      const snapshot = saveProgressStorage(window.localStorage, completed, learning, lessons, { expectedRaw: savedSnapshot.current })
+      const currentLearning = mergePendingCodeDrafts(learning, pendingCodeDrafts.current)
+      const snapshot = saveProgressStorage(window.localStorage, completed, currentLearning, lessons, { expectedRaw: savedSnapshot.current })
       savedSnapshot.current = JSON.stringify(snapshot)
-      savedProgress.current = { completed, learning }
+      savedProgress.current = { completed, learning: currentLearning }
       setStorageWarning(false)
     } catch (error) {
       if (error instanceof ProgressStorageConflictError) setStorageConflict(true)
@@ -3077,7 +3114,7 @@ function App() {
     return () => window.removeEventListener('storage', onStorageChange)
   }, [])
   useLayoutEffect(() => {
-    latestProgress.current = { completed, learning }
+    latestProgress.current = { completed, learning: mergePendingCodeDrafts(learning, pendingCodeDrafts.current) }
   }, [completed, learning])
 
   const navigateToLesson = useCallback((lessonId) => {
@@ -3115,10 +3152,29 @@ function App() {
   const restoreBackup = (incoming, options) => {
     if (storageConflict) throw new Error('Başka sekmede daha yeni kayıt var. Önce bu sekmenin JSON yedeğini indirip sayfayı yenile.')
     const restored = restoreProgressBackup(latestProgress.current, incoming, options)
+    // A successful import must be durable before announcing success. Otherwise
+    // a quota/storage failure leaves the UI showing progress that reload loses.
+    let snapshot
+    try {
+      snapshot = saveProgressStorage(window.localStorage, restored.completed, restored.learning, lessons, { expectedRaw: savedSnapshot.current })
+    } catch (error) {
+      if (error instanceof ProgressStorageConflictError) {
+        setStorageConflict(true)
+        throw error
+      }
+      setStorageWarning(true)
+      throw new Error('Tarayıcı kaydı başarısız. İlerleme değiştirilmedi; depolama alanını kontrol edip tekrar dene.', { cause: error })
+    }
+    window.clearTimeout(pendingDraftTimer.current)
+    pendingCodeDrafts.current.clear()
+    savedSnapshot.current = JSON.stringify(snapshot)
+    savedProgress.current = restored
     latestProgress.current = restored
     setLearning(restored.learning)
     setCompleted(restored.completed)
+    setProgressRestoreVersion((version) => version + 1)
     setRecoveryIssue('')
+    setStorageWarning(false)
     return restored
   }
 
@@ -3185,14 +3241,22 @@ function App() {
   const flushCodeDraft = useCallback((lessonId, draft) => {
     const { completed: currentCompleted, learning: currentLearning } = latestProgress.current
     const previous = currentLearning[lessonId] ?? {}
-    if (previous.codeDraft === draft) return
+    if (previous.codeDraft === draft) return previous.codeDraftUpdatedAt ?? 0
+    // Imports may carry future timestamps. Local edits must stay newer.
+    const draftRecord = { codeDraft: draft, codeDraftUpdatedAt: Math.max(Date.now(), (previous.codeDraftUpdatedAt ?? 0) + 1) }
     const updatedLearning = {
       ...currentLearning,
-      [lessonId]: { ...previous, codeDraft: draft, codeDraftUpdatedAt: Date.now() },
+      [lessonId]: { ...previous, ...draftRecord },
     }
     latestProgress.current = { completed: currentCompleted, learning: updatedLearning }
-    setLearning(updatedLearning)
-    if (recoveryIssue || storageConflict) return
+    pendingCodeDrafts.current.set(lessonId, draftRecord)
+    window.clearTimeout(pendingDraftTimer.current)
+    pendingDraftTimer.current = window.setTimeout(() => {
+      const drafts = new Map(pendingCodeDrafts.current)
+      pendingCodeDrafts.current.clear()
+      setLearning((state) => mergePendingCodeDrafts(state, drafts))
+    }, 350)
+    if (recoveryIssue || storageConflict) return draftRecord.codeDraftUpdatedAt
     try {
       // Persist each edit synchronously so immediate reload cannot drop the last keystroke.
       // Optimistic concurrency still prevents overwriting another tab's changes.
@@ -3204,6 +3268,7 @@ function App() {
       if (error instanceof ProgressStorageConflictError) setStorageConflict(true)
       else setStorageWarning(true)
     }
+    return draftRecord.codeDraftUpdatedAt
   }, [recoveryIssue, storageConflict])
 
   const saveDebugAttempt = (lessonId, attempt) => {
@@ -3304,6 +3369,7 @@ function App() {
     setReadinessOpen(false)
     window.requestAnimationFrame(() => readinessTriggerRef.current?.focus())
   }, [])
+  const dismissReadiness = useCallback(() => setReadinessOpen(false), [])
 
   const prefetchLessonRuntime = (lesson) => {
     void prefetchLessonPlaygroundRuntime(lesson)
@@ -3314,7 +3380,7 @@ function App() {
     <main className={focus ? 'app focus-mode' : 'app'}>
       <a className="skip-link" href="#learning-area">Aktif derse geç</a>
       <header className="topbar">
-        <button className="brand" onClick={() => navigateToLesson(lessons[0].id)} aria-label="İlk derse git">
+        <button className="brand" onClick={() => navigateToLesson(lessons[0].id)} title="İlk derse git">
           <span className="brand-mark">JB</span>
           <span><strong>JAVA BACKEND</strong><small>ÖĞRENME ATÖLYESİ / {lessons.length} DERS</small></span>
         </button>
@@ -3333,7 +3399,7 @@ function App() {
           <strong>Başka bir sekme ilerlemeni değiştirdi.</strong>
           Bu sekmede otomatik kayıt durduruldu. Burada yeni çalıştıysan aşağıdan JSON yedeğini indir. Sonra sayfayı yenile, güncel ilerlemeyi aç ve yedeği “Birleştir” modunda yükle.
           <div className="storage-recovery-actions">
-            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} exportOnly />
+            <ProgressBackup completed={completed} learning={learning} getCurrentProgress={() => latestProgress.current} onRestore={restoreBackup} exportOnly />
           </div>
         </div>
       )}
@@ -3342,17 +3408,27 @@ function App() {
           <strong>{recoveryIssue}</strong> Mevcut veri üzerine yazılmıyor. Ham kurtarma dosyasını indir; geçerli ilerleme JSON yedeğini aşağıdan yükleyerek kaydı yeniden başlatabilirsin.
           <div className="storage-recovery-actions">
             <button type="button" onClick={downloadRawRecovery}>Ham verileri indir</button>
-            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} importOnly />
+            <ProgressBackup completed={completed} learning={learning} getCurrentProgress={() => latestProgress.current} onRestore={restoreBackup} importOnly />
           </div>
           <small>Ham kurtarma dosyası, normal ilerleme yedeği yerine doğrudan yüklenemez.</small>
         </div>
       )}
       {storageWarning && !storageConflict && <div className="storage-warning" role="alert">İlerleme bu cihazda kaydedilemiyor. Tarayıcı depolama ayarlarını kontrol et; sayfayı yenilersen son çalışmaların kaybolabilir. JSON yedeğini indir.</div>}
-      {readinessOpen && <div id="readiness-panel"><ReadinessPanel readiness={readiness} onClose={closeReadiness} /></div>}
+      {readinessOpen && <div id="readiness-panel"><ReadinessPanel readiness={readiness} onClose={closeReadiness} onDismiss={dismissReadiness} triggerRef={readinessTriggerRef} /></div>}
 
       <div className="shell">
-        <aside className={`roadmap ${roadmapOpen ? 'is-open' : ''}`} aria-label="Java Backend öğrenme konu haritası">
-          <button className="roadmap-mobile-toggle" type="button" aria-expanded={roadmapOpen} aria-controls="roadmap-navigation" onClick={() => setRoadmapOpen((value) => !value)}>
+        <aside
+          className={`roadmap ${roadmapOpen ? 'is-open' : ''}`}
+          aria-label="Java Backend öğrenme konu haritası"
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !roadmapOpen || !window.matchMedia('(max-width: 640px)').matches) return
+            event.preventDefault()
+            event.stopPropagation()
+            setRoadmapOpen(false)
+            roadmapToggleRef.current?.focus()
+          }}
+        >
+          <button ref={roadmapToggleRef} className="roadmap-mobile-toggle" type="button" aria-expanded={roadmapOpen} aria-controls="roadmap-navigation" onClick={() => setRoadmapOpen((value) => !value)}>
             <span><strong>Konu haritası</strong><small>{lessons.length} ders · Java, Spring Boot ve daha fazlası</small></span>
             <span aria-hidden="true">{roadmapOpen ? 'Kapat −' : 'Dersleri aç +'}</span>
           </button>
@@ -3372,7 +3448,7 @@ function App() {
               </div>
               <small className="roadmap-result-count" role="status" aria-live="polite" aria-atomic="true">{visibleLessons.length}/{lessons.length} ders gösteriliyor</small>
             </div>
-            <ProgressBackup completed={completed} learning={learning} onRestore={restoreBackup} />
+            <ProgressBackup completed={completed} learning={learning} getCurrentProgress={() => latestProgress.current} onRestore={restoreBackup} />
           </div>
           {visibleLessons.length === 0 && <p className="roadmap-empty" role="status">Bu arama veya filtreyle eşleşen ders yok.</p>}
           {phases.map((phase) => {
@@ -3397,6 +3473,9 @@ function App() {
                         navigateToLesson(lesson.id)
                         if (window.matchMedia('(max-width: 640px)').matches) {
                           setRoadmapOpen(false)
+                          if (lesson.id === activeId) {
+                            window.requestAnimationFrame(() => learningAreaRef.current?.focus({ preventScroll: true }))
+                          }
                         }
                       }}
                       onMouseEnter={() => prefetchLessonRuntime(lesson)}
@@ -3427,7 +3506,7 @@ function App() {
             <button className="lesson-share" type="button" onClick={copyLessonLink} title={`${activeLesson.title} dersinin bağlantısını kopyala`}>Bağlantıyı kopyala ↗</button>
           </div>
           {copyStatus && <p className="lesson-share-status" role="status" aria-live="polite">{copyStatus} {copyStatus.startsWith('Kopyalama') && <a href={lessonUrl(window.location.href, activeId)} target="_blank" rel="noopener noreferrer">Ders bağlantısını aç ↗</a>}</p>}
-          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={activeRecord} codePassed={activeRecord.codePassed} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={flushCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
+          <GuidedLearningLesson lesson={activeLesson} completed={completedSet.has(activeLesson.id)} status={activeStatus} learningRecordData={pendingCodeDrafts.current.has(activeId) ? { ...activeRecord, ...pendingCodeDrafts.current.get(activeId) } : activeRecord} codePassed={activeRecord.codePassed} restoreVersion={progressRestoreVersion} onComplete={finishLesson} onQuizAnswer={recordQuizAnswer} onCodeComplete={recordCodeComplete} onCodeDraftChange={flushCodeDraft} onDebugAttempt={saveDebugAttempt} onActiveRecall={recordActiveRecall} onInterviewAttempt={saveInterviewAttempt} onNext={nextLesson} nextLesson={upNextLesson} index={activeIndex} total={lessons.length} />
           {reviewDueCount === 0 && <RecallDeck completed={completedSet} activeId={activeId} learning={learning} onReview={recordReview} />}
           <footer>
             <strong>{activeLesson.points?.[0] ?? activeLesson.hook}</strong>
@@ -3442,5 +3521,7 @@ function App() {
     </main>
   )
 }
+
+App.displayName = 'App'
 
 export default App

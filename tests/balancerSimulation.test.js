@@ -15,6 +15,35 @@ test('round-robin distributes six requests evenly across registered instances', 
   assert.equal(state.totalRequests, 6)
   assert.equal(state.failedRequests, 0)
   assert.equal(state.lastRoute, 'P3')
+  assert.equal(state.lastRouteSucceeded, true)
+})
+
+test('registry churn preserves rotation through the stable instance ring', () => {
+  let state = routeBalancerBatch(createBalancerState(), 3)
+  assert.equal(state.lastRoute, 'P3')
+  state = runDiscoveryHealthCheck(setInstanceProcess(state, 'P2', false))
+  state = routeBalancerRequest(state)
+  assert.equal(state.lastRoute, 'P1')
+  state = routeBalancerRequest(state)
+  assert.equal(state.lastRoute, 'P3')
+  state = runDiscoveryHealthCheck(setInstanceReadiness(setInstanceProcess(state, 'P2', true), 'P2', true))
+  state = routeBalancerBatch(state, 3)
+  assert.deepEqual(state.instances.map(({ requests }) => requests), [3, 2, 3])
+})
+
+test('last request outcome is a historical result, unaffected by later health changes', () => {
+  let state = routeBalancerRequest(createBalancerState())
+  assert.equal(state.lastRoute, 'P1')
+  assert.equal(state.lastRouteSucceeded, true)
+  state = setInstanceProcess(state, 'P1', false)
+  assert.equal(state.lastRouteSucceeded, true)
+  state = runDiscoveryHealthCheck(state)
+  assert.equal(state.lastRouteSucceeded, true)
+
+  state = routeBalancerBatch(state, 2)
+  assert.equal(state.lastRouteSucceeded, true)
+  state = setInstanceProcess(state, 'P1', true)
+  assert.equal(state.lastRouteSucceeded, true)
 })
 
 test('runtime failure is invisible to discovery until health check updates registry', () => {
@@ -24,6 +53,7 @@ test('runtime failure is invisible to discovery until health check updates regis
   state = routeBalancerRequest(state)
   assert.equal(state.lastRoute, 'P2')
   assert.equal(state.failedRequests, 1)
+  assert.equal(state.lastRouteSucceeded, false)
   assert.match(state.events.at(-1).message, /registry stale/)
 })
 
@@ -57,5 +87,6 @@ test('empty registry fails request without selecting an instance', () => {
   assert.equal(state.lastRoute, 'NO_INSTANCE')
   assert.equal(state.totalRequests, 1)
   assert.equal(state.failedRequests, 1)
+  assert.equal(state.lastRouteSucceeded, false)
   assert.equal(state.instances.every((instance) => instance.requests === 0), true)
 })

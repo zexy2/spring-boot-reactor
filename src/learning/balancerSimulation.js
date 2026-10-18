@@ -7,6 +7,7 @@ export function createBalancerState() {
     totalRequests: 0,
     failedRequests: 0,
     lastRoute: null,
+    lastRouteSucceeded: null,
     nextEventId: 1,
     events: [],
   }
@@ -77,14 +78,20 @@ export function routeBalancerRequest(state) {
   if (!candidates.length) {
     return record(
       state,
-      { totalRequests, failedRequests: state.failedRequests + 1, lastRoute: 'NO_INSTANCE' },
+      { totalRequests, failedRequests: state.failedRequests + 1, lastRoute: 'NO_INSTANCE', lastRouteSucceeded: false },
       'Discovery boş liste döndürdü; request route edilemedi.',
       'error',
     )
   }
 
-  const selected = candidates[state.cursor % candidates.length]
-  const cursor = state.cursor + 1
+  // Keep the rotation anchored to the stable instance ring. Rebuilding the
+  // discovery list must not silently restart routing at an arbitrary member.
+  let selectedIndex = state.cursor % state.instances.length
+  while (!state.instances[selectedIndex].registered) {
+    selectedIndex = (selectedIndex + 1) % state.instances.length
+  }
+  const selected = state.instances[selectedIndex]
+  const cursor = (selectedIndex + 1) % state.instances.length
   const instances = state.instances.map((instance) => instance.id === selected.id
     ? { ...instance, requests: instance.requests + 1 }
     : instance)
@@ -98,6 +105,7 @@ export function routeBalancerRequest(state) {
         totalRequests,
         failedRequests: state.failedRequests + 1,
         lastRoute: selected.id,
+        lastRouteSucceeded: false,
       },
       `Load balancer ${selected.id} seçti; registry stale olduğu için instance hazır değil ve request başarısız oldu.`,
       'error',
@@ -106,7 +114,7 @@ export function routeBalancerRequest(state) {
 
   return record(
     state,
-    { instances, cursor, totalRequests, lastRoute: selected.id },
+    { instances, cursor, totalRequests, lastRoute: selected.id, lastRouteSucceeded: true },
     `Discovery adayları içinden round-robin ${selected.id} seçildi; request başarılı.`,
     'ok',
   )

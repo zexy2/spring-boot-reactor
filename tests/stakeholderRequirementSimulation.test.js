@@ -29,10 +29,8 @@ test('requirement starts with every business decision unresolved', () => {
 })
 
 test('acceptance criteria generation is blocked while a clarification is missing', () => {
-  let state = fullyClarifiedState()
-  state = setRequirementDecision(state, 'audit', null)
-  // invalid option is ignored, so build an actually incomplete state instead
-  state = createStakeholderRequirementState()
+  // An invalid option is ignored, so build an actually incomplete state.
+  let state = createStakeholderRequirementState()
   for (const [id, value] of Object.entries({ status: 'created_paid', refund: 'auto', auth: 'owner_admin', contract: 'dto' })) {
     state = setRequirementDecision(state, id, value)
   }

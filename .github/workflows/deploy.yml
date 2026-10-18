@@ -3,33 +3,46 @@ name: Test and deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: github-pages
+  group: github-pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  quality:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - run: npm run lint
+      - run: npm run check:security
       - run: npm test
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: npm run test:java
+      - run: npm run test:spring
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - name: Verify GitHub Pages production build
+        run: npm run build
+        env:
+          DEPLOY_GITHUB_PAGES: 'true'
+      - run: npm run check:metadata
+      - run: npm run check:bundle
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
@@ -38,6 +51,32 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Preserve verified production build
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 2
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download verified production build
+        uses: actions/download-artifact@v4
+        with:
+          name: pages-dist
+          path: dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

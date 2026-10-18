@@ -32,6 +32,22 @@ class Demo {
       ['new ile phone nesnesi', /\bProduct\s+phone\s*=\s*new\s+Product\s*\(\s*\)\s*;/],
       ['phone field atamaları', /\bphone\.name\s*=\s*"[^"]+"\s*;[\s\S]*?\bphone\.price\s*=\s*\d+(?:\.\d+)?\s*;/],
     ],
+    scopeRules: [
+      {
+        label: 'name ve price, Product sınıfında',
+        path: [/\bclass\s+Product\s*\{/],
+        directMembersOnly: true,
+        patterns: [/\bString\s+name\s*;/, /\bdouble\s+price\s*;/],
+      },
+      {
+        label: 'Product oluşturma ve alan atamaları Demo.run() içinde',
+        path: [/\bclass\s+Demo\s*\{/, /\bvoid\s+run\s*\(\s*\)\s*\{/],
+        patterns: [
+          /\bProduct\s+phone\s*=\s*new\s+Product\s*\(\s*\)\s*;/,
+          /\bphone\.name\s*=\s*"[^"]+"\s*;[\s\S]*?\bphone\.price\s*=\s*\d+(?:\.\d+)?\s*;/,
+        ],
+      },
+    ],
     hint: '`class Product` bir tiptir. `new Product()` nesne üretir. `phone.name` ise nesnenin alanına erişir.',
     expectedBehavior: 'run() içinde yeni Product nesnesi oluşur; iki field bu nesneye atanır.',
     reviewQuestion: 'İkinci kez new Product() çağırırsan aynı nesne mi kullanılır?',
@@ -64,6 +80,18 @@ class Demo {
       ['String dönen label()', /\bString\s+label\s*\(\s*\)\s*\{/],
       ['Etiket return ifadesi', /\breturn\s+"Ürün: "\s*\+\s*(?:this\.)?name\s*;/],
     ],
+    scopeRules: [
+      {
+        label: 'name ataması Product constructor içinde',
+        path: [/\bclass\s+Product\s*\{/, /\bProduct\s*\(\s*String\s+name\s*\)\s*\{/],
+        patterns: [/\bthis\.name\s*=\s*name\s*;/],
+      },
+      {
+        label: 'Etiket sonucu Product.label() içinde döner',
+        path: [/\bclass\s+Product\s*\{/, /\bString\s+label\s*\(\s*\)\s*\{/],
+        patterns: [/\breturn\s+"Ürün: "\s*\+\s*(?:this\.)?name\s*;/],
+      },
+    ],
     hint: 'Constructor’ın dönüş tipi olmaz; adı class ile aynıdır. `this.name`, field’ı ifade eder.',
     expectedBehavior: 'new Product("Kalem").label() sonucu "Ürün: Kalem" olmalı.',
     reviewQuestion: '`this.name = name` satırında iki `name` neden aynı şeyi ifade etmiyor?',
@@ -94,6 +122,16 @@ class CardPaymentService implements PaymentService {
       ['Interface implementasyonu', /\bclass\s+CardPaymentService\s+implements\s+PaymentService\s*\{/],
       ['public pay method’u', /\bpublic\s+boolean\s+pay\s*\(\s*double\s+amount\s*\)\s*\{/],
       ['Pozitif tutar koşulu', /\breturn\s+amount\s*>\s*0\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Pozitif tutar kontrolü CardPaymentService.pay() içinde',
+        path: [
+          /\bclass\s+CardPaymentService\s+implements\s+PaymentService\s*\{/,
+          /\bpublic\s+boolean\s+pay\s*\(\s*double\s+amount\s*\)\s*\{/,
+        ],
+        patterns: [/\breturn\s+amount\s*>\s*0\s*;/],
+      },
     ],
     hint: 'Interface gövdesi davranış imzasını taşır; implementation içindeki method `public` olmalıdır.',
     expectedBehavior: 'pay(15) true, pay(0) false döner.',
@@ -134,6 +172,18 @@ class Directory {
       ['Map ve HashMap', /\bMap\s*<\s*Long\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/],
       ['Key ekleme ve okuma', /\busers\.put\s*\(\s*42L\s*,\s*"Ada"\s*\)\s*;[\s\S]*?\bString\s+name\s*=\s*users\.get\s*\(\s*42L\s*\)/],
     ],
+    scopeRules: [{
+      label: 'Koleksiyon işlemleri Directory.example() içinde',
+      path: [/\bclass\s+Directory\s*\{/, /\bvoid\s+example\s*\(\s*\)\s*\{/],
+      patterns: [
+        /\bList\s*<\s*String\s*>\s+order\s*=\s*new\s+ArrayList\s*<\s*>\s*\(\s*\)/,
+        /\border\.add\s*\(\s*"Kalem"\s*\)/,
+        /\bSet\s*<\s*String\s*>\s+roles\s*=\s*new\s+HashSet\s*<\s*>\s*\(\s*\)/,
+        /\broles\.add\s*\(\s*"ADMIN"\s*\)/,
+        /\bMap\s*<\s*Long\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/,
+        /\busers\.put\s*\(\s*42L\s*,\s*"Ada"\s*\)\s*;[\s\S]*?\bString\s+name\s*=\s*users\.get\s*\(\s*42L\s*\)/,
+      ],
+    }],
     hint: '`List` tekrar kabul eder, `Set` aynı elemanı tek tutar, `Map` key üzerinden value bulur.',
     expectedBehavior: 'order bir satır, roles tek rol, users ise 42L için "Ada" içerir.',
     reviewQuestion: 'Bir kullanıcıya aynı rol iki kez eklenirse Set ile List arasında hangi fark oluşur?',
@@ -170,6 +220,15 @@ class UserIndex {
       ['Yeni key ile put', /\busers\.put\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*,\s*"Ada"\s*\)/],
       ['Farklı nesneyle get', /\bString\s+found\s*=\s*users\.get\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*\)/],
     ],
+    scopeRules: [{
+      label: 'HashMap lookup UserIndex.lookup() içinde',
+      path: [/\bclass\s+UserIndex\s*\{/, /\bvoid\s+lookup\s*\(\s*\)\s*\{/],
+      patterns: [
+        /\bMap\s*<\s*UserKey\s*,\s*String\s*>\s+users\s*=\s*new\s+HashMap\s*<\s*>\s*\(\s*\)/,
+        /\busers\.put\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*,\s*"Ada"\s*\)/,
+        /\bString\s+found\s*=\s*users\.get\s*\(\s*new\s+UserKey\s*\(\s*42\s*\)\s*\)/,
+      ],
+    }],
     hint: 'Record, bileşenlerinden `equals` ve `hashCode` üretir. İki ayrı UserKey(42) mantıksal olarak eşittir.',
     expectedBehavior: 'Farklı nesne kimliğine rağmen found değişkeni "Ada" olur.',
     reviewQuestion: 'HashMap key olarak değişebilir bir alan kullansaydın ne bozulabilirdi?',
@@ -200,6 +259,18 @@ class Inventory {
       ['Unchecked exception sınıfı', /\bclass\s+OutOfStockException\s+extends\s+RuntimeException\s*\{/],
       ['Mesajı üst sınıfa iletme', /\bOutOfStockException\s*\(\s*String\s+message\s*\)\s*\{\s*super\s*\(\s*message\s*\)\s*;/],
       ['Stok kontrolü ve throw', /\bif\s*\(\s*requested\s*>\s*stock\s*\)\s*\{\s*throw\s+new\s+OutOfStockException\s*\(\s*"[^"]+"\s*\)\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Exception mesajı kendi constructor’ında',
+        path: [/\bclass\s+OutOfStockException\s+extends\s+RuntimeException\s*\{/, /\bOutOfStockException\s*\(\s*String\s+message\s*\)\s*\{/],
+        patterns: [/\bsuper\s*\(\s*message\s*\)\s*;/],
+      },
+      {
+        label: 'Stok kontrolü Inventory.reserve() içinde',
+        path: [/\bclass\s+Inventory\s*\{/, /\bvoid\s+reserve\s*\(\s*int\s+stock\s*,\s*int\s+requested\s*\)\s*\{/],
+        patterns: [/\bif\s*\(\s*requested\s*>\s*stock\s*\)\s*\{\s*throw\s+new\s+OutOfStockException\s*\(\s*"[^"]+"\s*\)\s*;/],
+      },
     ],
     hint: '`throw` hatayı o anda fırlatır. `extends RuntimeException` checked `throws` bildirimi zorunluluğunu kaldırır.',
     expectedBehavior: 'reserve(2, 3) exception fırlatır; reserve(4, 1) normal tamamlanır.',
@@ -238,6 +309,16 @@ class Catalog {
       ['Ürün adını çıkarma', /\.map\s*\(\s*(?:p\s*->\s*p\.name\s*\(\s*\)|Product::name)\s*\)/],
       ['Sıralama ve terminal işlem', /\.sorted\s*\(\s*\)\s*\.toList\s*\(\s*\)/],
     ],
+    scopeRules: [{
+      label: 'Stream zinciri Catalog.activeNames() içinde',
+      path: [/\bclass\s+Catalog\s*\{/, /\bList\s*<\s*String\s*>\s+activeNames\s*\(\s*List\s*<\s*Product\s*>\s+products\s*\)\s*\{/],
+      patterns: [
+        /\breturn\s+products\.stream\s*\(\s*\)/,
+        /\.filter\s*\(\s*(?:p\s*->\s*p\.active\s*\(\s*\)|Product::active)\s*\)/,
+        /\.map\s*\(\s*(?:p\s*->\s*p\.name\s*\(\s*\)|Product::name)\s*\)/,
+        /\.sorted\s*\(\s*\)\s*\.toList\s*\(\s*\)/,
+      ],
+    }],
     hint: 'filter elemanı seçer; map onu dönüştürür; toList terminal işlemdir.',
     expectedBehavior: 'Ürünler içinden active=true olanların isimlerini alfabetik List olarak döndürür.',
     reviewQuestion: 'Sondaki toList() kaldırılırsa stream pipeline ne zaman çalışır?',
@@ -267,6 +348,18 @@ class Catalog {
     requirements: [
       ['Yazmaya monitor kilidi', /\bsynchronized\s+void\s+increment\s*\(\s*\)\s*\{\s*value\s*\+\+\s*;/],
       ['Okumaya aynı monitor kilidi', /\bsynchronized\s+int\s+getValue\s*\(\s*\)\s*\{\s*return\s+value\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Senkronize yazma Counter.increment() içinde',
+        path: [/\bclass\s+Counter\s*\{/, /\bsynchronized\s+void\s+increment\s*\(\s*\)\s*\{/],
+        patterns: [/\bvalue\s*\+\+\s*;/],
+      },
+      {
+        label: 'Senkronize okuma Counter.getValue() içinde',
+        path: [/\bclass\s+Counter\s*\{/, /\bsynchronized\s+int\s+getValue\s*\(\s*\)\s*\{/],
+        patterns: [/\breturn\s+value\s*;/],
+      },
     ],
     hint: '`value++` tek atomik adım değildir. İki instance method da aynı Counter nesnesinin monitor kilidini kullanır.',
     expectedBehavior: 'Aynı Counter nesnesine farklı thread’lerden erişirken kritik okuma/yazma serialize edilir.',
@@ -309,6 +402,24 @@ class OrderService {
       ['Constructor injection', /\bOrderService\s*\(\s*Notifier\s+notifier\s*\)\s*\{\s*this\.notifier\s*=\s*notifier\s*;/],
       ['Abstraction üzerinden çağrı', /\bvoid\s+notifyCustomer\s*\(\s*String\s+message\s*\)\s*\{\s*notifier\.send\s*\(\s*message\s*\)\s*;/],
     ],
+    scopeRules: [
+      {
+        label: 'Notifier field doğrudan OrderService içinde',
+        path: [/\bclass\s+OrderService\s*\{/],
+        directMembersOnly: true,
+        patterns: [/\bprivate\s+final\s+Notifier\s+notifier\s*;/],
+      },
+      {
+        label: 'Notifier ataması OrderService constructor içinde',
+        path: [/\bclass\s+OrderService\s*\{/, /\bOrderService\s*\(\s*Notifier\s+notifier\s*\)\s*\{/],
+        patterns: [/\bthis\.notifier\s*=\s*notifier\s*;/],
+      },
+      {
+        label: 'Bildirim OrderService.notifyCustomer() içinde',
+        path: [/\bclass\s+OrderService\s*\{/, /\bvoid\s+notifyCustomer\s*\(\s*String\s+message\s*\)\s*\{/],
+        patterns: [/\bnotifier\.send\s*\(\s*message\s*\)\s*;/],
+      },
+    ],
     hint: 'OrderService nesneyi kendi üretmez. Dışarıdan Notifier alır; e-posta yerine SMS vermek kolaylaşır.',
     expectedBehavior: 'Constructor’a verilen herhangi bir Notifier implementation’ı notifyCustomer ile çağrılır.',
     reviewQuestion: 'OrderService içinde new EmailNotifier() yazmak testleri ve değişimi neden zorlaştırır?',
@@ -350,6 +461,23 @@ class CardPayment extends Payment {
       ['Abstract davranış', /\babstract\s+boolean\s+pay\s*\(\s*\)\s*;/],
       ['Alt sınıf ve super', /\bclass\s+CardPayment\s+extends\s+Payment\s*\{\s*CardPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{\s*super\s*\(\s*amount\s*\)\s*;/],
       ['Override edilen iş kuralı', /@Override\s+boolean\s+pay\s*\(\s*\)\s*\{\s*return\s+amount\.signum\s*\(\s*\)\s*>\s*0\s*;/],
+    ],
+    scopeRules: [
+      {
+        label: 'Amount ataması Payment constructor içinde',
+        path: [/\babstract\s+class\s+Payment\s*\{/, /\bPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{/],
+        patterns: [/\bthis\.amount\s*=\s*amount\s*;/],
+      },
+      {
+        label: 'super(amount) CardPayment constructor içinde',
+        path: [/\bclass\s+CardPayment\s+extends\s+Payment\s*\{/, /\bCardPayment\s*\(\s*BigDecimal\s+amount\s*\)\s*\{/],
+        patterns: [/\bsuper\s*\(\s*amount\s*\)\s*;/],
+      },
+      {
+        label: 'Ödeme kontrolü CardPayment.pay() içinde',
+        path: [/\bclass\s+CardPayment\s+extends\s+Payment\s*\{/, /\bboolean\s+pay\s*\(\s*\)\s*\{/],
+        patterns: [/\breturn\s+amount\.signum\s*\(\s*\)\s*>\s*0\s*;/],
+      },
     ],
     hint: 'abstract class gövde ve state taşıyabilir. Alt sınıf constructor’ı super ile üst yapıyı kurar.',
     expectedBehavior: 'Pozitif BigDecimal tutarda pay() true, sıfırda false döner.',
@@ -543,6 +671,43 @@ function matchesExecutablePattern(pattern, code, unquotedCode, maskedLiterals, l
   return false
 }
 
+// Scopes use lexical braces, with comments and string/character literals masked.
+// This checks placement of required code; Java compilation/type checking is separate.
+function extractJavaScope(source, path) {
+  let current = source
+  for (const declaration of path) {
+    const masked = splitCodeComments(current).unquotedCode
+    const match = new RegExp(declaration.source, declaration.flags.replace(/[gy]/g, '')).exec(masked)
+    if (!match || !match[0].endsWith('{')) return null
+    const opening = match.index + match[0].length - 1
+    let depth = 1
+    let closing = opening + 1
+    while (closing < masked.length && depth > 0) {
+      if (masked[closing] === '{') depth += 1
+      if (masked[closing] === '}') depth -= 1
+      closing += 1
+    }
+    if (depth !== 0) return null
+    current = current.slice(opening + 1, closing - 1)
+  }
+  return current
+}
+
+// A class field must be declared directly on that class; fields in inner
+// classes or method bodies cannot fulfill its field requirements.
+function maskNestedScopes(source) {
+  const masked = splitCodeComments(source).unquotedCode
+  const chars = [...source]
+  let depth = 0
+  for (let index = 0; index < masked.length; index += 1) {
+    const char = masked[index]
+    if (char === '{') depth += 1
+    if (depth > 0 && source[index] !== '\n') chars[index] = ' '
+    if (char === '}') depth -= 1
+  }
+  return chars.join('')
+}
+
 export function evaluateCodeRequirements(answer, challenge) {
   if (!challenge) return { checks: [], generatedMatch: false, staticSuccess: false }
 
@@ -570,6 +735,15 @@ export function evaluateCodeRequirements(answer, challenge) {
       ? matchesExecutablePattern(needle, withoutComments, unquotedCode, maskedLiterals, literals)
       : normalized.includes(normalizeCodeAnswer(needle)),
   }))
+  for (const rule of challenge.scopeRules ?? []) {
+    const scoped = extractJavaScope(answer, rule.path)
+    const parts = scoped == null ? null : splitCodeComments(rule.directMembersOnly ? maskNestedScopes(scoped) : scoped)
+    checks.push({
+      label: rule.label,
+      ok: parts !== null && rule.patterns.every((pattern) =>
+        matchesExecutablePattern(pattern, parts.code, parts.unquotedCode, parts.maskedLiterals, parts.literals)),
+    })
+  }
   if (challenge.editableStarter) {
     checks.push({ label: 'TODO satırları tamamlandı', ok: !/\bTODO\b/i.test(unquotedCode + comments) })
   }
