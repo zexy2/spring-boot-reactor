@@ -4,6 +4,16 @@ export default defineConfig({
   base: process.env.DEPLOY_GITHUB_PAGES === 'true' ? '/spring-boot-reactor/' : '/',
   build: {
     rolldownOptions: {
+      onLog(level, log, defaultHandler) {
+        const source = String(log.id ?? log.loc?.file ?? '').replaceAll('\\', '/')
+        const isFramerMotionClientDirective =
+          level === 'warn' &&
+          log.code === 'MODULE_LEVEL_DIRECTIVE' &&
+          source.includes('/node_modules/framer-motion/')
+
+        if (isFramerMotionClientDirective) return
+        defaultHandler(level, log)
+      },
       output: {
         codeSplitting: {
           groups: [
